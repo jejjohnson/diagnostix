@@ -1,32 +1,24 @@
 # API Reference
 
-Everything listed in `mypackage.__all__` is importable from the top level:
-
-```python
-import mypackage as mp
-
-mp.summarize(...)  # same object as mypackage.stats.summarize
-```
-
-The submodules below are an implementation detail you are welcome to reach
-into, but never have to. The [capability index](capabilities.md) lists every
-public name on one page, with a one-line summary each.
+The public API is the set of public modules below, plus the exceptions that `diagnostix.__all__` exports. Private code lives in `diagnostix._src`. The [capability index](capabilities.md) lists every public name on one page, with a one-line summary each.
 
 ## Modules
 
-| Module | Contents |
-|---|---|
-| [Statistics](stats.md) | `summarize`, `Summary`, `quantile`, `zscores`, `RunningStats` |
-| [Smoothing](smoothing.md) | `moving_average`, `exponential_moving_average`, `median_filter`, `Padding` |
-| [Transforms](transforms.md) | `Standardize`, `MinMaxScale`, `Clip`, `MovingAverage`, `Pipeline`, `chain` |
-| [Utilities](utils.md) | `as_floats`, `require_non_empty`, `require_positive`, `Window`, `timer` |
-| [Protocols](typing.md) | `Series`, `Transform`, `Fittable` |
-| [Exceptions](exceptions.md) | `MypackageError`, `ValidationError`, `EmptySeriesError`, `NotFittedError` |
-| [CLI](cli.md) | `main`, `build_parser` |
+| Module | Contents | Status |
+|---|---|---|
+| `diagnostix.kinematics` | Velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | Wave 1 |
+| `diagnostix.columns` | N², lapse rate, first crossings, mixed-layer depth, boundary-layer height, column integrals | Wave 1 |
+| `diagnostix.budgets` | Control volumes, boundary fluxes, budgets and their residuals | Wave 2 |
+| `diagnostix.climate` | Climatologies, anomalies, trends, running means | Wave 2 |
+| `diagnostix.spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |
+| `diagnostix.eofs` | Area-weighted EOFs and their reading | Wave 3 |
+| `diagnostix.skill` | Pointwise, ensemble, spectral and physical scores | Wave 4 |
+| [Type aliases](typing.md) | `ArrayLike` | available |
+| [Exceptions](exceptions.md) | `DiagnostixError`, `BackendError`, `ValidationError` | available |
 
 ## Package overview
 
-::: mypackage
+::: diagnostix
     options:
       members: false
       show_root_heading: false

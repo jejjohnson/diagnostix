@@ -1,17 +1,15 @@
 # Exceptions
 
-Every error raised by the package derives from
-[`MypackageError`][mypackage.MypackageError] *and* from the closest
-standard-library exception.
+Every error raised by the package derives from [`DiagnostixError`][diagnostix.DiagnostixError], which is itself a `ValueError`.
+The exception is the array backend, which is [pipekit-array's](https://jejjohnson.github.io/pipekit/reference/pipekit-array/#plain-functions): an array of an unknown library, or of several in one call, raises pipekit's `BackendError`, and an input that is not real, or an unlabelled array next to a labelled one, raises a plain `ValueError`.
+Both are a `ValueError`.
 
 ```mermaid
 graph TD
-    E[Exception] --> M[MypackageError]
-    V[ValueError] --> VE[ValidationError]
-    M --> VE
-    VE --> ES[EmptySeriesError]
-    R[RuntimeError] --> NF[NotFittedError]
-    M --> NF
+    V[ValueError] --> R[DiagnostixError]
+    V --> B["BackendError (pipekit)"]
+    T[TypeError] --> B
+    R --> A[ValidationError]
 ```
 
-::: mypackage.exceptions
+::: diagnostix.exceptions
