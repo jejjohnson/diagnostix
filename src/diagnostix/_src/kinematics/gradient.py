@@ -10,21 +10,17 @@ import gridax
 from jaxtyping import Float
 from pipekit_array.functions import floating_inputs, namespace_of
 
+from diagnostix._src.kinematics.inputs import grid_inputs
 from diagnostix._src.records import register_record
 from diagnostix._typing import ArrayLike
-from diagnostix.exceptions import ValidationError
 
 
 __all__ = [
     "VelocityGradient",
     "curvature_vorticity",
-    "require_collocated",
     "shear_vorticity",
     "velocity_gradient",
 ]
-
-#: The grids of `diagnostix.kinematics`: every field at the same points.
-COLLOCATED = (gridax.CartesianAGrid2D, gridax.SphericalAGrid2D)
 
 #: cos φ below which a row is at a pole, where tan φ has no value (gridax's).
 POLE = 1e-12
@@ -92,9 +88,7 @@ def velocity_gradient(
                [3.5, 3.5, 3.5],
                [3.5, 3.5, 3.5]])
     """
-    require_collocated(grid)
-    xp, (u, v) = floating_inputs(u, v)
-    _require_shape(grid, u, v)
+    xp, (u, v) = grid_inputs(grid, u, v)
     u, v = xp.broadcast_arrays(u, v)
     dudx = gridax.difference(u, grid, axis="x", mask=mask)
     dvdx = gridax.difference(v, grid, axis="x", mask=mask)
@@ -183,33 +177,6 @@ def curvature_vorticity(
     u, v, a, speed_squared = _gradient_and_speed(u, v, grid, mask)
     curvature = u**2 * a.dvdx - v**2 * a.dudy - u * v * (a.dudx - a.dvdy)
     return curvature / speed_squared
-
-
-def require_collocated(grid: Any) -> None:
-    """Raise unless a grid is one of `COLLOCATED`.
-
-    Raises:
-        ValidationError: If it is not.
-    """
-    if not isinstance(grid, COLLOCATED):
-        names = " or ".join(kind.__name__ for kind in COLLOCATED)
-        msg = f"'grid' must be a {names}, got {type(grid).__name__}"
-        raise ValidationError(msg)
-
-
-def _require_shape(grid: Any, *fields: Any) -> None:
-    """Raise unless every field ends in the grid's (y, x).
-
-    Raises:
-        ValidationError: If one does not.
-    """
-    for field in fields:
-        if tuple(field.shape[-2:]) != grid.shape:
-            msg = (
-                f"a field on this grid ends in {grid.shape} (y, x), "
-                f"got shape {tuple(field.shape)}"
-            )
-            raise ValidationError(msg)
 
 
 def _gradient_and_speed(
