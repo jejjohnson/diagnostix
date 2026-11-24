@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.3](https://github.com/jejjohnson/diagnostix/compare/v0.0.2...v0.0.3) (2026-11-24)
+
+
+### Features
+
+* **budgets:** control volumes, the flux through their faces, and the flux divergence that closes with it ([#39](https://github.com/jejjohnson/diagnostix/issues/39)) ([e1433aa](https://github.com/jejjohnson/diagnostix/commit/e1433aaea6c8d501a612c71f1574c594f2da338a))
+* **budgets:** the budget of a quantity term by term, with its residual, over a region and per cell ([#41](https://github.com/jejjohnson/diagnostix/issues/41)) ([dfd6419](https://github.com/jejjohnson/diagnostix/commit/dfd6419ea1eabde695678d4861a7157537441371))
+* **climate:** anomalies and their inverse, linear trends and running means ([#43](https://github.com/jejjohnson/diagnostix/issues/43)) ([d703c93](https://github.com/jejjohnson/diagnostix/commit/d703c93ecadccf10858e40f3b48116a16fb20e5f))
+* **climate:** daily and monthly climatologies on a leap-year calendar, with a base period and a harmonic fit ([#42](https://github.com/jejjohnson/diagnostix/issues/42)) ([f8b2192](https://github.com/jejjohnson/diagnostix/commit/f8b2192e7c3f73f6cb2f2105697f2f7c3849bc65))
+
 ## [0.0.2](https://github.com/jejjohnson/diagnostix/compare/v0.0.1...v0.0.2) (2026-11-24)
 
 
