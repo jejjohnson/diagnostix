@@ -117,6 +117,7 @@ Most rules here are tests, so CI tells you when one breaks. Read a test's docstr
 | `tests/test_build_docs.py` | The two-tool docs pipeline: inventory parsing, anchor repair, link checking, the inventory port and the absolute nav URL in `docs/myst.yml`, the files copied to the site root (`ROOT_FILES`) |
 | `tests/conftest.py` | `jax_enable_x64` is on whenever JAX is importable; tests marked `jax` or `xarray` are skipped when it is not |
 | `tests/test_import_isolation.py` | Importing every module loads neither JAX nor xarray, and no stack library but gridax, geophysix, pipekit-array and pipekit-ops |
+| `tests/test_harness.py` | The harness itself: each check passes on a right function and fails on a wrong one, each closed form and library in `tests/_oracles.py` agrees with an independent evaluation, and every stored xrops value is what its name says |
 | CI job "without JAX and xarray" | The base install imports and passes the tests with neither installed |
 | CI job "reference libraries" | The `oracles` group resolves, and the comparisons with it pass |
 | `uv sync --locked` in every test job | `uv.lock` matches the pins in `pyproject.toml` |
@@ -124,13 +125,15 @@ Most rules here are tests, so CI tells you when one breaks. Read a test's docstr
 | `strict_markers = true` | Only the registered markers (`slow`, `integration`, `jax`, `xarray`, `oracle`) exist |
 | ruff (`select = E, F, I, UP, B, SIM, RUF`), ty | Lint (the whole repo), format, types on `src/diagnostix` and `scripts` |
 
-Each function brings five tests, as `add-diagnostic` lays out:
+Each function brings five tests, as `add-diagnostic` lays out, with the helpers of `tests/`:
 
-1. **Closed form** or stored reference, at a stated tolerance, in float64. A closed form comes first, and xrops values only where xrops is right ([#16](https://github.com/jejjohnson/diagnostix/issues/16)).
-2. **Backends**: NumPy, JAX and `array_api_strict` give the same values. A function that calls gridax runs on NumPy and JAX only.
-3. **Transforms**: under JAX, eager, `jit` and `vmap` over a batch of one agree.
-4. **Gradients**: autodiff against central differences where the function is smooth, and finite on the valid cells when others are invalid.
-5. **Precision**: float32 in gives float32 out.
+1. **Closed form** or stored reference, at a stated tolerance, in float64 (`assert_matches_oracle`, `tests/_oracles.py`). A closed form comes first, and `xrops_values` only where xrops is right ([#16](https://github.com/jejjohnson/diagnostix/issues/16)).
+2. **Backends**: NumPy, JAX and `array_api_strict` give the same values. A function that calls gridax runs on NumPy and JAX only (`assert_backends_agree`, with `kinds=GRID_KINDS`; `labelled=True` for an elementwise function, `assert_refuses_dataarrays` for the others).
+3. **Transforms**: under JAX, eager, `jit` and `vmap` over a batch of one agree (`assert_traces`).
+4. **Gradients**: autodiff against central differences where the function is smooth, and finite on the valid cells when others are invalid (`assert_grad_matches_fd`, `assert_finite_gradient`).
+5. **Precision**: float32 in gives float32 out (`assert_backends_agree` checks it).
+
+A test on random draws uses `assert_mean` (`tests/_sampling.py`). xrops will import diagnostix, so its values are stored in `tests/data/`, with the geotoolz commit in each file name, by `write_xrops.py`, which refuses another commit; add an array there rather than a test dependency, and check it against its formula in `tests/test_harness.py`.
 
 ## Recipes
 

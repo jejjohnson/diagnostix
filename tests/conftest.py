@@ -21,6 +21,9 @@ else:
 
 _OPTIONAL = ("jax", "xarray")
 
+# scripts that run in another repository's environment, not tests
+collect_ignore = ["data"]
+
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Skip the tests whose marker names a library that is not installed."""
