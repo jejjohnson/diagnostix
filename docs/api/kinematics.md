@@ -8,12 +8,16 @@ The vorticity, the divergence, the strain, the Okubo–Weiss parameter and the g
 
 ```python
 import gridax
+from geophysix.rotation import coriolis
 
-from diagnostix.kinematics import shear_vorticity
+from diagnostix.kinematics import frontogenesis, geostrophic_residual
 
 grid = gridax.SphericalAGrid2D.from_coords(lat=lat, lon=lon)
-# u, v: (T, Ny, Nx) → ζ_s: (T, Ny, Nx)
-zeta_s = shear_vorticity(u, v, grid, mask=mask)
+# sst, u, v: (T, Ny, Nx) → F: (T, Ny, Nx)
+fronts = frontogenesis(sst, u, v, grid, mask=mask)
+# f: (Ny, 1), one value per row
+f = coriolis(lat)[:, None]
+r_u, r_v = geostrophic_residual(u, v, ssh, grid, f=f, mask=mask)
 ```
 
 ::: diagnostix.kinematics

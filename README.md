@@ -31,12 +31,12 @@ uv run poe install
 
 ## Status
 
-The package has its scaffold, and no public module is built yet. The order is:
+`kinematics` and `columns` are built. The order is:
 
 | Module | Holds | Wave |
 |---|---|---|
-| `kinematics` | velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | [Wave 1](https://github.com/jejjohnson/diagnostix/issues/9) |
-| `columns` | N², lapse rate, first crossings, mixed-layer depth, boundary-layer height, column integrals | [Wave 1](https://github.com/jejjohnson/diagnostix/issues/9) |
+| `kinematics` | velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | [Wave 1](https://github.com/jejjohnson/diagnostix/issues/9), built |
+| `columns` | vertical derivative, N², lapse rate, column integrals, first crossings, mixed-layer depth, bulk Richardson number, boundary-layer height | [Wave 1](https://github.com/jejjohnson/diagnostix/issues/9), built |
 | `budgets` | control volumes, boundary fluxes, budgets and their residuals | [Wave 2](https://github.com/jejjohnson/diagnostix/issues/10) |
 | `climate` | climatologies, anomalies, trends, running means | [Wave 2](https://github.com/jejjohnson/diagnostix/issues/10) |
 | `spectra` | power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | [Wave 3](https://github.com/jejjohnson/diagnostix/issues/11) |
