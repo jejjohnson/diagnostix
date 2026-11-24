@@ -19,6 +19,7 @@ import diagnostix
 SUBMODULES = [
     "_typing",
     "budgets",
+    "climate",
     "columns",
     "exceptions",
     "kinematics",

@@ -7,7 +7,8 @@ leaves over, which patterns vary together, and how good a forecast is.
 ## Modules
 
 Each is created by its first feature issue; so far there are
-`diagnostix.kinematics`, `diagnostix.columns` and `diagnostix.budgets`.
+`diagnostix.kinematics`, `diagnostix.columns`, `diagnostix.budgets` and
+`diagnostix.climate`.
 
 | Module | What it gives you |
 |---|---|
