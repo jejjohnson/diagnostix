@@ -18,7 +18,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `_typing.py` | The `ArrayLike` type alias | now |
 | `exceptions.py` | `DiagnostixError` (a `ValueError`) and its subclass `ValidationError`; pipekit's `BackendError` | now |
 | `kinematics` | Velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | Wave 1 |
-| `columns` | First crossings, mixed-layer depth, bulk Richardson number, boundary-layer height; N², lapse rate, column integrals to come | now, growing in Wave 1 |
+| `columns` | Vertical derivative, N², lapse rate, column integrals, first crossings, mixed-layer depth, bulk Richardson number, boundary-layer height | now |
 | `budgets` | Control volumes, boundary fluxes, budgets and their residuals | Wave 2 |
 | `climate` | Climatologies, anomalies, trends, running means | Wave 2 |
 | `spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |
@@ -28,7 +28,7 @@ The public API is the set of public modules below; private code lives in `src/di
 ### Boundaries
 
 - **Layer rule.** diagnostix imports gridax, geophysix and the array backend `pipekit_array.functions`, and nothing else from the GeoStack at runtime. It never imports functax, integrix, gaussx, geotoolz or any GeoModels library; xrops, plumax and sesmax-ocean import it. functax is a reference library in the tests. `tests/test_import_isolation.py` checks this.
-- **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`, with the `pipekit-ops` it brings. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to the one tag gridax and geophysix use. JAX and xarray are extras.
+- **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`, with the `pipekit-ops` it brings. None of the stack's packages is on PyPI, so they are pinned to git tags (gridax to a commit until its next release), and every pipekit package to the one tag gridax uses. JAX and xarray are extras.
 - **Ownership test.** Does it take a field and say something about it, and does no library below already name it? Then it belongs here. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's. Extremes are xtremax's, and Lagrangian analysis is tracerax's.
 - **No convenience aliases.** A one-line combination of functions the stack has (absolute vorticity, eddy kinetic energy, f from latitude) is written by the caller, and the docs show it.
 
@@ -42,7 +42,7 @@ Each foundation brings a rule. Breaking one runs fine on your machine and fails 
 |---|---|---|
 | **NumPy ≥ 2.0** | The default namespace; tables built once on the host | NumPy in gives NumPy out; no function needs JAX or xarray installed. |
 | **pipekit-array** (`pipekit_array.functions`) | The namespace, the dtype and the device of a call | A change to them is made there. Only functions of the array API standard are called on the namespace; `array_api_strict` in the tests refuses the rest. |
-| **gridax** | Grids, masks, derivatives, `area_weights`, and the diagnostics it names | No stencil, metric term or cell area is written here when gridax has it. gridax v0.3.0 does not run on `array_api_strict`, so a function that calls it is tested on NumPy and JAX. |
+| **gridax** | Grids, masks, derivatives, `area_weights`, and the diagnostics it names | No stencil, metric term or cell area is written here when gridax has it. gridax does not run on `array_api_strict`, so a function that calls it is tested on NumPy and JAX. |
 | **geophysix** | Constants and facts at a point | No constant or Earth radius is written here. |
 | **JAX** (extra `jax`) | The same functions under `jit`, `vmap` and `grad` | Never imported at module level, and nothing inside the library calls `jax.jit`: the caller jits once, at the top. |
 | **xarray** (extra `xarray`) | A DataArray in, a DataArray out, for elementwise functions only | Imported only when a DataArray arrives. |
