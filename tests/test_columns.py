@@ -109,6 +109,7 @@ class TestFirstCrossing:
         out = first_crossing(np.zeros((2, 3)), np.arange(3.0), np.asarray([NAN, 0.0]))
         assert_matches_oracle(out, np.asarray([NAN, 0.0]), rtol=0.0)
 
+    @pytest.mark.slow
     def test_backends_and_precision(self) -> None:
         rng = np.random.default_rng(2)
         f = np.abs(rng.normal(size=(6, 9))).cumsum(axis=-1)
@@ -125,6 +126,7 @@ class TestFirstCrossing:
         )
 
     @needs_jax
+    @pytest.mark.slow
     def test_transforms(self) -> None:
         rng = np.random.default_rng(3)
         f = rng.normal(size=(3, 5, 9)).cumsum(axis=-1)
@@ -132,6 +134,7 @@ class TestFirstCrossing:
         assert_traces(first_crossing, f, z, rng.uniform(size=(3, 5)))
 
     @needs_jax
+    @pytest.mark.slow
     def test_gradients(self) -> None:
         rng = np.random.default_rng(4)
         f = np.abs(rng.normal(size=(3, 6))).cumsum(axis=-1)
@@ -258,6 +261,7 @@ class TestMixedLayerDepth:
         shared = mixed_layer_depth(0.002 * depth, depth, axis=0, valid=DEPTH < 50.0)
         assert_matches_oracle(shared, np.full(2, 25.0), rtol=1e-12)
 
+    @pytest.mark.slow
     def test_backends_and_precision(self) -> None:
         depth = np.stack([DEPTH, 1.5 * DEPTH, DEPTH])
         density = 0.002 * depth
@@ -275,6 +279,7 @@ class TestMixedLayerDepth:
         assert_refuses_dataarrays(mixed_layer_depth, 0.002 * DEPTH, DEPTH)
 
     @needs_jax
+    @pytest.mark.slow
     def test_transforms(self) -> None:
         rng = np.random.default_rng(5)
         depth = np.sort(rng.uniform(0.0, 80.0, size=(3, 4, 12)), axis=-1)
@@ -287,6 +292,7 @@ class TestMixedLayerDepth:
         )
 
     @needs_jax
+    @pytest.mark.slow
     def test_gradients(self) -> None:
         depth = np.stack([DEPTH, 1.5 * DEPTH])
         density = 0.002 * depth + 1e-6 * depth**2
@@ -472,6 +478,7 @@ class TestBoundaryLayerHeight:
         assert_traces(boundary_layer_height, *sheared_columns(7, (3, 4, 12)))
 
     @needs_jax
+    @pytest.mark.slow
     def test_gradients(self) -> None:
         theta, u, v, z = sheared_columns(8, (2, 10))
         assert_grad_matches_fd(
@@ -573,6 +580,7 @@ class TestVerticalDerivative:
         out = vertical_derivative(values, z)
         assert np.argwhere(np.isnan(out)).tolist() == [[0, 3], [0, 4], [0, 5]]
 
+    @pytest.mark.slow
     def test_backends_and_precision(self) -> None:
         z = np.cumsum(np.asarray([0.5, 1.0, 1.5, 0.5, 2.0, 1.0]))
         values = np.stack([z**2, 2.0 * z])
@@ -588,6 +596,7 @@ class TestVerticalDerivative:
         assert_refuses_dataarrays(vertical_derivative, z, z[0])
 
     @needs_jax
+    @pytest.mark.slow
     def test_transforms(self) -> None:
         z = uneven_levels(7, (3, 4, 9))
         values = np.sin(z)
@@ -595,6 +604,7 @@ class TestVerticalDerivative:
         assert_traces(vertical_derivative, values, z[:, 0], rtol=1e-11)
 
     @needs_jax
+    @pytest.mark.slow
     def test_gradients(self) -> None:
         z = uneven_levels(8, (2, 5))
         values = np.sin(z)
