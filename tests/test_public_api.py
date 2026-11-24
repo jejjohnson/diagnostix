@@ -18,6 +18,7 @@ import diagnostix
 
 SUBMODULES = [
     "_typing",
+    "columns",
     "exceptions",
 ]
 

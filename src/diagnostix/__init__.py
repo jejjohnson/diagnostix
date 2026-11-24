@@ -6,7 +6,8 @@ leaves over, which patterns vary together, and how good a forecast is.
 
 ## Modules
 
-Each is created by its first feature issue; none is built yet.
+Each is created by its first feature issue; so far there is
+`diagnostix.columns`.
 
 | Module | What it gives you |
 |---|---|
