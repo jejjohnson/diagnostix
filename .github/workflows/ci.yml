@@ -3,8 +3,8 @@ name: Tests
 on:
   push:
     branches: [main]
+  # every pull request, whatever its base, so stacked PRs are tested too
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -20,10 +20,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: uv sync --group dev
+      - name: Install every extra
+        run: uv sync --locked --all-extras --group test
       - name: Run tests with coverage
-        run: uv run pytest -v
+        run: uv run --no-sync pytest -v
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7
@@ -36,3 +36,34 @@ jobs:
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
+
+  test-without-jax:
+    name: without JAX and xarray
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      # The base install: no extra, and the test group brings neither.
+      - name: Install the package and the tests, no extras
+        run: uv sync --locked --group test
+      - name: Assert that JAX and xarray are not installed
+        run: >-
+          uv run --no-sync python -c
+          "import importlib.util as u, sys; sys.exit(any(map(u.find_spec, ('jax', 'xarray'))))"
+      - name: Run the tests without them
+        run: uv run --no-sync pytest -o addopts=--doctest-modules
+
+  oracles:
+    name: reference libraries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      - name: Install every extra and the oracles group
+        run: uv sync --locked --all-extras --group test --group oracles
+      - name: Run the tests
+        run: uv run --no-sync pytest -v --no-cov

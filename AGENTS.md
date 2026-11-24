@@ -4,157 +4,148 @@ Standing instructions for **every** coding agent working in this repository (Cla
 
 The house style (Python, maths notation, prose, pseudocode, reports) comes from the maintainer's personal skills in [jejagents](https://github.com/jejjohnson/jejagents); "House style" and "Personal skills" below say which skill covers what and carry the essentials, so an agent without those skills installed can still follow them.
 
-> **This repository is a template.** Passages that describe the bundled example package, `mypackage`, start with a `<!-- template-example: … -->` comment (`# template-example: …` in code and config). Each marker covers the section it opens, down to the next heading of the same level, unless it names a smaller scope. Marked passages are true of the example and must be rewritten from your own code when you adopt the template (the `adopt-template` skill walks through it; `grep -rn "template-example" .` lists them). Everything unmarked is a permanent rule.
 
 ## What this repo is
 
-<!-- template-example: describe your package and its module map. -->
-
-An opinionated Python package template (Python 3.12+, uv, ruff, ty, pytest, mystmd and MkDocs, release-please) that ships a real worked example, `mypackage`: a **dependency-free** library of descriptive statistics, smoothing filters and composable transforms over one-dimensional numeric series, with an `argparse` console script. It exists so every tool here has real code to operate on: mkdocstrings renders its docstrings, ty checks its annotations, the coverage gate measures its branches, and every docstring example runs as a doctest.
+diagnostix is the GeoStack's library of diagnostics: it takes a geophysical field and says something about it, physically or statistically. It is a GeoNumerics library, above geophysix and gridax, written once in the Python array API standard, so it runs on NumPy, JAX and any other array-API library.
 
 People build on a package like this, so **the package is a library of primitives**: new code composes what is here, and anything genuinely new lands where the next person will find and reuse it.
 
-It is one package, `src/mypackage/`. The public API is `mypackage.__all__`, re-exported from `src/mypackage/__init__.py`, plus the `mypackage.cli` module (`main`, `build_parser`). Imports only point down this table:
+The public API is the set of public modules below; private code lives in `src/diagnostix/_src/<module>/`, and code that several modules share in `src/diagnostix/_src/`. `src/diagnostix/__init__.py` exports only `__version__` and the exceptions. [jejjohnson/geostack#309](https://github.com/jejjohnson/geostack/issues/309) is the backlog, and each public module is created by its first feature issue.
 
-| Module | Owns |
-|---|---|
-| `_typing.py` | PEP 695 `type Series = Sequence[float]`; the runtime-checkable `Transform` and `Fittable` protocols |
-| `exceptions.py` | `MypackageError` and its subclasses `ValidationError` (also a `ValueError`), `EmptySeriesError`, `NotFittedError` (also a `RuntimeError`) |
-| `utils.py` | The boundary validators `as_floats`, `require_non_empty`, `require_positive`; the generic `Window[T]` ring buffer; `timer` / `Elapsed` |
-| `stats.py` | `summarize` → frozen `Summary`, `quantile`, `zscores`, streaming `RunningStats` (Welford) |
-| `smoothing.py` | `moving_average`, `exponential_moving_average`, `median_filter`, the `Padding` boundary strategies |
-| `transforms.py` | `Standardize`, `MinMaxScale` (fitted), `Clip`, `MovingAverage` (stateless), `Pipeline`, `chain` |
-| `cli.py` | The `mypackage` console script (`summarize`, `smooth` subcommands), wired through `[project.scripts]` |
+| Module | Owns | Status |
+|---|---|---|
+| `_typing.py` | The `ArrayLike` type alias | now |
+| `exceptions.py` | `DiagnostixError` (a `ValueError`) and its subclass `ValidationError`; pipekit's `BackendError` | now |
+| `kinematics` | Velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | Wave 1 |
+| `columns` | N², lapse rate, first crossings, mixed-layer depth, boundary-layer height, column integrals | Wave 1 |
+| `budgets` | Control volumes, boundary fluxes, budgets and their residuals | Wave 2 |
+| `climate` | Climatologies, anomalies, trends, running means | Wave 2 |
+| `spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |
+| `eofs` | Area-weighted EOFs and their reading | Wave 3 |
+| `skill` | Pointwise, ensemble, spectral and physical scores | Wave 4 |
 
 ### Boundaries
 
-<!-- template-example: this list only; replace it with your runtime dependencies, who builds on the package, and what it must never import. -->
+- **Layer rule.** diagnostix imports gridax, geophysix and the array backend `pipekit_array.functions`, and nothing else from the GeoStack at runtime. It never imports functax, integrix, gaussx, geotoolz or any GeoModels library; xrops, plumax and sesmax-ocean import it. functax is a reference library in the tests. `tests/test_import_isolation.py` checks this.
+- **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to the one tag gridax and geophysix use. JAX and xarray are extras.
+- **Ownership test.** Does it take a field and say something about it, and does no library below already name it? Then it belongs here. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's. Extremes are xtremax's, and Lagrangian analysis is tracerax's.
+- **No convenience aliases.** A one-line combination of functions the stack has (absolute vorticity, eddy kinetic energy, f from latitude) is written by the caller, and the docs show it.
 
-- **No runtime dependencies** (`dependencies = []` in `pyproject.toml`): everything is the standard library. A new runtime dependency needs discussion; an optional one goes behind an extra and an in-function import that names the extra when it is missing.
-- **The CLI is a thin shell.** `cli.py` parses arguments and formats output; the computation lives in the library modules, which never import `cli`.
-
-Whatever the package, dependencies point one way. When other projects build on it, list them here and keep their imports working: a rename or removal of a public name goes through a deprecation (the old name keeps working with a `DeprecationWarning` that names the replacement for at least one release).
+When other projects build on the package, list them here and keep their imports working through the change that moves them.
 
 ## What it is built on
 
-<!-- template-example: one row per library your package uses, with the rule it brings. -->
-
-Each foundation brings a rule. Breaking one runs fine on your example and fails in someone else's pipeline or in CI.
+Each foundation brings a rule. Breaking one runs fine on your machine and fails in someone else's pipeline or in CI.
 
 | Foundation | The package uses it for | The rule it brings |
 |---|---|---|
-| **Python ≥ 3.12 standard library** | PEP 695 `type` aliases and generics (`class Window[T]`), `typing.Self`, `enum.StrEnum`, `math.fsum`, `statistics.median` | No runtime dependency for what the standard library already does. |
-| **`dataclasses`** | `Summary`, every transform, `RunningStats`, `Elapsed` | `slots=True` always; `frozen=True` for values and stateless objects; a fitted transform keeps what it learned in `init=False` fields with a trailing underscore (`mean_`) defaulting to `None`; validation in `__post_init__`. |
-| **`typing.Protocol`** (`runtime_checkable`) | `Transform`, `Fittable` | Structural, not nominal: no base class, no registry. `isinstance` only checks that the attribute exists, so code that relies on a protocol also checks the attribute is callable (as `Pipeline.__post_init__` does). |
-| **`argparse`** | `mypackage.cli` | Output goes to the injected streams, `main` returns an exit status instead of calling `sys.exit`. |
+| **NumPy ≥ 2.0** | The default namespace; tables built once on the host | NumPy in gives NumPy out; no function needs JAX or xarray installed. |
+| **pipekit-array** (`pipekit_array.functions`) | The namespace, the dtype and the device of a call | A change to them is made there. Only functions of the array API standard are called on the namespace; `array_api_strict` in the tests refuses the rest. |
+| **gridax** | Grids, masks, derivatives, `area_weights`, and the diagnostics it names | No stencil, metric term or cell area is written here when gridax has it. gridax v0.3.0 does not run on `array_api_strict`, so a function that calls it is tested on NumPy and JAX. |
+| **geophysix** | Constants and facts at a point | No constant or Earth radius is written here. |
+| **JAX** (extra `jax`) | The same functions under `jit`, `vmap` and `grad` | Never imported at module level, and nothing inside the library calls `jax.jit`: the caller jits once, at the top. |
+| **xarray** (extra `xarray`) | A DataArray in, a DataArray out, for elementwise functions only | Imported only when a DataArray arrives. |
+| **`dataclasses`** | Results that hold several arrays | `frozen=True`, registered as JAX pytrees once JAX loads. |
+| **scipy, hypothesis, array-api-strict** (the `test` group) | Reference results and property tests | Never a runtime import. |
+| **MetPy, xrft, xskillscore, scikit-learn, functax** (the `oracles` group) | Reference results | Only the job "reference libraries" installs them; an oracle test skips when its package is missing. xrops is never one of them, because it imports diagnostix. |
 | **pytest + `--doctest-modules`** | The suite and every docstring `Examples:` block | An example's expected output is what the code prints; a stale example is a failing test. |
 
 ## Reuse before you write
 
-Before writing a helper, a validator, a statistic, a filter or a transform, find out whether it exists:
+Before writing a helper, a constant, a conversion or a formula, find out whether it exists:
 
 1. **Search the capability index.** [`docs/api/capabilities.md`](docs/api/capabilities.md) lists every public name once, at its public home, grouped by the module that defines it, with a one-line summary. It is generated (`uv run poe capabilities`) and checked by `tests/test_capabilities.py`, so it is current.
 2. **Search the private helpers** in the table below: several invariants live in exactly one place each.
 3. **If it is missing, add it to the module that owns the concept**, at the lowest layer every caller can reach, not inline in the one caller you have today; a helper two modules need goes into `utils.py`.
 4. **One object, one name.** A name means one thing across the package and its submodules (`tests/test_capabilities.py`); a deliberate exception is listed with its reason in `ALLOWED_SHARED_NAMES` in `scripts/capabilities.py`.
 
-<!-- template-example: this table maps hand-rolled code to the example's names; rebuild it for your package. -->
-
 | You are about to write… | Use instead |
 |---|---|
-| `[float(v) for v in series]`, an emptiness check, an `if window <= 0` guard | `as_floats`, `require_non_empty`, `require_positive` (`mypackage.utils`); they raise `ValidationError` / `EmptySeriesError` with the uniform `'name' must …` message |
-| A mean, variance, min / max or median loop | `summarize` (→ `Summary`, with `std`, `spread`, `to_dict()`); `quantile`; `zscores`; one value at a time, `RunningStats` |
-| `math.fsum(values) / len(values)` that must survive overflow | `stats._mean` (rescales by a power of two when the sum overflows) |
-| A rolling mean, rolling median or exponential smoother | `moving_average`, `median_filter`, `exponential_moving_average` |
-| Padding a series at its ends | the `Padding` strategies (`edge`, `zero`, `reflect`, `none`) through `smoothing._pad`, `_reflect_index`; `_validate_window`, `_as_padding` for the arguments |
-| A `collections.deque(maxlen=…)` buffer | `Window[T]` |
-| `(x - mean) / std`, min–max scaling, clamping | `Standardize` (with `inverse`), `MinMaxScale`, `Clip` |
-| A list of steps applied in order, a base class for "things with `apply`" | `Pipeline`, `chain`, a pipeline composed with the `or` operator (`Pipeline.__or__`); satisfy the `Transform` protocol structurally |
-| A new exception for bad input or a missing `fit` | `ValidationError`, `EmptySeriesError`, `NotFittedError` |
-| `time.perf_counter()` bookkeeping | `timer()` → `Elapsed` |
-| Reading numbers from a file or stdin for the CLI, a non-negative-int option | `cli._read_values` (finite values only), `cli._non_negative_int` |
+| A hand-written Earth radius, g, or a gas constant | `geophysix.earth`, `geophysix.constants.STANDARD` |
+| A cell area, a cosine-latitude weight | `gridax.area_weights` |
+| A curl, a divergence, a strain, an Okubo–Weiss, a geostrophic velocity, a kinetic energy | the gridax function of that name |
+| A density, a potential temperature, a Coriolis parameter, a wind speed | geophysix |
+| `xp = np if isinstance(x, np.ndarray) else jnp`, or `x.astype(float)` on an input | `namespace_of`, `floating_inputs` from `pipekit_array.functions` |
+| A constant as an array of the input's dtype, on its device | `pipekit_array.functions.like` |
+| `isinstance(x, xr.DataArray)`, or a call to `xr.apply_ufunc` | `@elementwise` and `is_dataarray` from `pipekit_array.functions` |
+| A new exception for a bad argument | `ValidationError` |
 
 ## The contracts
-
-<!-- template-example: the contracts below are the example's extension points; replace them with your package's. -->
 
 Everything composes because it keeps these contracts; the tests in "What enforces them" check most of them.
 
 ### 1. Public functions
 
-- **Validate once, at the boundary.** A public function coerces and checks its inputs through the `utils` validators (`require_non_empty(series)`, `require_positive(window, name="window")`) and raises `ValidationError` (or `EmptySeriesError`) whose message names the argument: `'window' must be a positive integer, got 0`. Internal helpers assume well-formed data.
-- **Pure.** Return a **new** `list[float]` and never mutate the input (the `SMOOTHERS` tests in `tests/test_smoothing.py`, `test_does_not_mutate_input` in the stats and transforms tests). Any `collections.abc.Sequence` of numbers is accepted (`Series`).
-- **Honest numerics.** `math.fsum` for sums; an overflow becomes `inf`, not an exception, when the true result is not representable (see `summarize`); degenerate input (a constant series to standardise, `ddof` ≥ the count) raises `ValidationError` rather than returning `nan`.
-- **Documented.** Google-style docstring in the `python-style` layout: a one-line summary, the defining equation in Unicode (`eman-style-math`, no `$…$` in docstrings), `Algorithm:` for a function that implements a method, `Args:` (meaning and symbol, no type), `Returns:`, `Raises:` and an executable `Examples:` block.
+These are the decisions of [#15](https://github.com/jejjohnson/diagnostix/issues/15), where the measurements behind them are.
 
-### 2. Transforms
+- **Scope.** diagnostix owns a function that takes a field and says something about it, physically or statistically. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's.
+- **Arrays.** One implementation in functions of the Python array API standard, through `pipekit_array.functions`. JAX and xarray are never imported at module level. Nothing inside the library calls `jax.jit`; the caller jits once, at the top.
+- **Dependencies.** NumPy, gridax, geophysix and `pipekit-array[numpy,compat]`. Nothing else from the stack at runtime.
+- **Labels.** Elementwise functions carry pipekit's `@elementwise()` and take DataArrays. Functions over a grid or an axis take plain arrays, and xrops wraps them; a DataArray there raises `BackendError`, so labels are never lost silently.
+- **Axes.** A field on a grid ends in (y, x), on a collocated gridax grid, with any leading axes. A function along one axis takes `axis=-1`.
+- **Missing data.** Boolean, True = use. Functions on a grid take gridax's `mask=`; statistics take `valid=`. A NaN in a valid cell gives NaN. An undefined result is NaN through a double `where`, so that gradients of the other cells stay finite.
+- **Weights** are non-negative and need not be normalised.
+- **Precision.** The output dtype follows the inputs: float32 stays float32. Nothing enables x64.
+- **Units.** SI. Physical constants are geophysix records, passed as keywords with a default; f is an argument, never read from a global.
+- **Time.** Float seconds or days for trends and tendencies; integer calendar days and months for climatologies; never `datetime`.
+- **Results.** An array, or a frozen dataclass registered as a JAX pytree when JAX is imported.
+- **Pure.** Return a new array and never mutate the input.
+- **Documented.** Google-style docstring in the `python-style` layout: a one-line summary, the defining equation in Unicode (`eman-style-math`, no `$…$` in docstrings), `Args:` (meaning, symbol and unit, no type), `Returns:`, `Raises:` and an executable `Examples:` block.
 
-- A transform satisfies `Transform`: `apply(series) -> list[float]`, returning a new list. No base class.
-- **Stateless** (`Clip`, `MovingAverage`): `@dataclass(frozen=True, slots=True)`; `fit` returns `self` unchanged; `fit_apply` is `apply`.
-- **Fitted** (`Standardize`, `MinMaxScale`): `@dataclass(slots=True)`; learned state in `init=False` trailing-underscore fields defaulting to `None`; `fit(series)` validates, sets them and returns `self` (so it chains); `apply` before `fit` raises `NotFittedError("<Name> is not fitted; call .fit(series) first")`, never a silent identity; `fit_apply` is `fit(series).apply(series)`.
-- Constructor arguments that can be checked without data are validated in `__post_init__` (`ValidationError`), as `MinMaxScale`, `Clip` and `MovingAverage` do; the rest are checked by `fit`.
-- `Pipeline` fits each step on the previous step's output, calls `fit` only when the step has a callable one, and rejects a step without a callable `apply`; `|` returns a new pipeline.
+### 2. Exceptions
 
-### 3. The CLI
-
-- A subcommand is a subparser in `build_parser()` plus a `_run_<name>(args, out, stdin) -> int` handler registered in the `handlers` dict in `main`.
-- Write only to the injected `out` stream; read numbers through `_read_values`; validate options with an `argparse` `type=` (as `_non_negative_int` does), so a bad option is a usage error (exit 2).
-- Library errors propagate as `MypackageError`, which `main` reports as `error: …` on `err` with exit status 1 (`EXIT_ERROR`); `OSError` likewise. Never call `sys.exit` or `print` in a handler.
-
-### 4. Exceptions
-
-- Every error derives from `MypackageError` **and** the closest standard-library exception, so `except ValueError` keeps working. A new error goes into `exceptions.py`, is exported, and joins the parametrised lists in `tests/test_exceptions.py`.
+- Every error derives from `DiagnostixError`, which is a `ValueError`: `ValidationError` is a bad argument (its shape, a dimension name, its value). The one exception is the array backend, which is shared: pipekit's `BackendError` (a `TypeError` and a `ValueError`) for an array of an unknown library or of several in one call, and a plain `ValueError` for an input that is not real or an unlabelled array next to a DataArray. A new error goes into `exceptions.py`, is exported, and joins the list in `tests/test_exceptions.py`.
 
 ### The public API
 
-- Export a public name from its module's `__all__` and from `src/mypackage/__init__.py` (import and `__all__`); both stay sorted (ruff's `RUF022` and `test_all_is_sorted_and_unique` agree on the order).
-- A new module declares a sorted `__all__`, joins `SUBMODULES` in `tests/test_public_api.py`, and gets its own page in `docs/api/` (a `::: mypackage.<module>` block), a `nav` entry in `mkdocs.yml` and a row in `docs/api/index.md`; a name on an existing module's page is picked up by its `:::` block.
+- Private code lives in `src/diagnostix/_src/<module>/`; the public modules re-export it. Export a public name from its module's `__all__`; both stay in plain `sorted()` order, which `tests/test_public_api.py` checks (ruff's `RUF022` is off: its isort-style order differs). `src/diagnostix/__init__.py` exports `__version__` and the exceptions only.
+- A new module declares a sorted `__all__`, joins `SUBMODULES` in `tests/test_public_api.py`, and gets its own page in `docs/api/` (a `::: diagnostix.<module>` block), a `nav` entry in `mkdocs.yml` and a row in `docs/api/index.md`; a name on an existing module's page is picked up by its `:::` block.
 - Run `uv run poe capabilities` after any public API change.
-- Link prose to the API by the **top-level** name (``[`summarize`](xref:api#mypackage.summarize)``), see "Documentation".
+- Link prose to the API by the public name (``[`DiagnostixError`](xref:api#diagnostix.DiagnostixError)``), see "Documentation".
 
 ## What enforces them
 
 Most rules here are tests, so CI tells you when one breaks. Read a test's docstring before changing what it checks.
 
-<!-- template-example: the test files and registries are the example's; list your own. -->
-
 | Test | Enforces |
 |---|---|
 | `tests/test_public_api.py` | `__all__` sorted, unique and importable; `SUBMODULES` is exactly the set of modules; every submodule declares a sorted `__all__`; the `py.typed` marker ships; `__version__` is dotted |
 | `tests/test_capabilities.py` | `docs/api/capabilities.md` is current; no name is bound to two different objects |
-| `--doctest-modules` on `src/mypackage` (`addopts`) | Every docstring `Examples:` block runs and prints what it says |
-| `tests/test_smoothing.py` (`SMOOTHERS`) | Smoothers never mutate their input, return a new list, leave constants unchanged |
-| `tests/test_transforms.py` (`TestProtocols`, `TestPipeline`) | Every transform satisfies `Transform` (fitted ones `Fittable`); `NotFittedError` before `fit`; sequential fitting; no mutation |
-| `tests/test_exceptions.py` | The hierarchy: every error is a `MypackageError` and its stdlib base |
-| `tests/test_cli.py` | Injected streams, exit codes 0 / 1 / 2, finite-only input, the `[project.scripts]` entry point |
+| `--doctest-modules` on `src/diagnostix` (`addopts`) | Every docstring `Examples:` block runs and prints what it says |
+| `tests/test_exceptions.py` | The hierarchy: every error is a `DiagnostixError`, which is a `ValueError`; `BackendError` is pipekit's |
 | `tests/test_build_docs.py` | The two-tool docs pipeline: inventory parsing, anchor repair, link checking, the inventory port and the absolute nav URL in `docs/myst.yml`, the files copied to the site root (`ROOT_FILES`) |
-| `tests/test_plugin_skill.py` | The downstream plugin's worked example runs and its quoted numbers hold; every name the plugin skill and reviewer mention exists |
-| `[tool.coverage.report] fail_under = 90` | Coverage of `src/mypackage` in every coverage-enabled run (CI, `uv run poe test-cov`) |
-| `strict_markers = true` | Only the registered tier markers (`slow`, `integration`) exist |
-| ruff (`select = E, F, I, UP, B, SIM, RUF`), ty | Lint (the whole repo, notebook code cells included), format, types on `src/mypackage` and `scripts` |
+| `tests/conftest.py` | `jax_enable_x64` is on whenever JAX is importable; tests marked `jax` or `xarray` are skipped when it is not |
+| `tests/test_import_isolation.py` | Importing every module loads neither JAX nor xarray, and no stack library but gridax, geophysix, pipekit-array and pipekit-ops |
+| CI job "without JAX and xarray" | The base install imports and passes the tests with neither installed |
+| CI job "reference libraries" | The `oracles` group resolves, and the comparisons with it pass |
+| `uv sync --locked` in every test job | `uv.lock` matches the pins in `pyproject.toml` |
+| `[tool.coverage.report] fail_under = 90` | Coverage of `src/diagnostix` in every coverage-enabled run (CI, `uv run poe test-cov`) |
+| `strict_markers = true` | Only the registered markers (`slow`, `integration`, `jax`, `xarray`, `oracle`) exist |
+| ruff (`select = E, F, I, UP, B, SIM, RUF`), ty | Lint (the whole repo), format, types on `src/diagnostix` and `scripts` |
+
+Each function brings five tests, as `add-diagnostic` lays out:
+
+1. **Closed form** or stored reference, at a stated tolerance, in float64. A closed form comes first, and xrops values only where xrops is right ([#16](https://github.com/jejjohnson/diagnostix/issues/16)).
+2. **Backends**: NumPy, JAX and `array_api_strict` give the same values. A function that calls gridax runs on NumPy and JAX only.
+3. **Transforms**: under JAX, eager, `jit` and `vmap` over a batch of one agree.
+4. **Gradients**: autodiff against central differences where the function is smooth, and finite on the valid cells when others are invalid.
+5. **Precision**: float32 in gives float32 out.
 
 ## Recipes
 
 Step-by-step recipes for the common jobs live as plain Markdown in `.claude/skills/<name>/SKILL.md` (Claude Code loads them automatically; any agent can read and follow them), and two read-only review checklists in `.claude/agents/`:
 
-<!-- template-example: this table only; `add-function`, `add-transform`, `add-cli-command` and `mypackage-review` are the example package's, replace them with your extension points. -->
-
 | Job | Recipe |
 |---|---|
-| Turn a fresh copy of the template into your project | `adopt-template` |
-| Add a public function, class or module | `add-function` |
-| Add a transform (the `Transform` protocol) | `add-transform` |
-| Add a CLI subcommand or option | `add-cli-command` |
+| Add a function to a public module | `add-diagnostic` |
 | Add or update a guide page (MyST prose) | `add-guide-page` |
 | Add or update an example notebook | `add-notebook` |
 | Verify before a PR | `pre-pr-check` |
-| Review a change | `mypackage-review` (+ the read-only `.claude/agents/reuse-reviewer.md` and `correctness-reviewer.md`) |
+| Review a change | `diagnostix-review` (+ the read-only `.claude/agents/reuse-reviewer.md` and `correctness-reviewer.md`, the diagnostics reviewer) |
 | Write a squash commit message | `squash-commit` |
 | Open or link GitHub issues | `create-gh-issue`, `link-gh-issues` (templates in `.github/ISSUE_TEMPLATE/`; `uv run poe gh-labels`, `gh-sub`, `gh-block`, `gh-show`) |
 
-<!-- template-example: this paragraph only; the plugin describes the example package. -->
-
-Downstream users get the package's guidance through the Claude Code plugin in `plugins/mypackage/` (published by `.claude-plugin/marketplace.json`) and `docs/llms.txt` (copied to the site root by `ROOT_FILES` in `scripts/build_docs.py`); see `docs/agents.md`. When the public API or the headline usage changes, update `plugins/mypackage/skills/series-analysis-with-mypackage/` too: `tests/test_plugin_skill.py` runs its worked example, checks the numbers its prose quotes, and checks that every `mp.X` / `mypackage.X` it and the plugin reviewer name still exists.
 
 ## Working in the repo
 
@@ -167,7 +158,7 @@ uv run poe test             # every test + doctests, no coverage (fast)
 uv run poe test-cov         # the same with coverage and the 90 % gate (what CI runs)
 uv run poe lint             # ruff check .   (entire repo)
 uv run poe format           # ruff format . && ruff check --fix .
-uv run poe typecheck        # ty check src/mypackage scripts (what CI runs)
+uv run poe typecheck        # ty check src/diagnostix scripts (what CI runs)
 uv run poe check            # lint + format-check + typecheck + test-cov (everything CI checks)
 uv run poe capabilities     # regenerate docs/api/capabilities.md
 uv run poe docs             # build both docs halves into public/ and check every link
@@ -178,12 +169,12 @@ uv run poe precommit        # every pre-commit hook on every file
 uv run poe build            # wheel + sdist into dist/
 ```
 
-Extra arguments after a task name are passed to its command (`uv run poe test tests/test_stats.py -k summarize`).
+Extra arguments after a task name are passed to its command (`uv run poe test tests/test_exceptions.py -k base`).
 
 `addopts` turns coverage on, and a partial run never reaches the 90 % gate, so pass `--no-cov` when running part of the suite:
 
 ```bash
-uv run pytest --no-cov tests/test_stats.py::TestSummarize::test_known_values -v
+uv run pytest --no-cov tests/test_exceptions.py -v
 ```
 
 ### Test tiers
@@ -194,13 +185,11 @@ The markers are registered in `pyproject.toml` (`strict_markers = true`):
 - **`@pytest.mark.slow`:** a test over ~1 s (a large sweep, a long fit). For a parametrised test, mark only the expensive cases (`pytest.param(..., marks=pytest.mark.slow)`).
 - **`@pytest.mark.integration`:** end-to-end workflows, optional dependencies, external tools.
 
-CI ("Tests", `ci.yml`) runs every tier with coverage on Python 3.12 and 3.13 (`uv run pytest -v`). Select the fast tier with `uv run pytest -m "not slow and not integration"`; when the slow tiers grow, give them a CI job of their own rather than dropping them.
+CI ("Tests", `ci.yml`) runs every tier with coverage on Python 3.12 and 3.13 (`uv run pytest -v`), and again with no extra and with the `oracles` group. Select the fast tier with `uv run pytest -m "not slow and not integration"`; when the slow tiers grow, give them a CI job of their own rather than dropping them. `jax`, `xarray` and `oracle` are not tiers: they say what a test needs.
 
 ### Tests that assert on random draws
 
-<!-- template-example: this paragraph only. The example draws no random numbers; its tests use fixed fixtures in tests/conftest.py. -->
-
-`mypackage` draws no random numbers; its tests use the fixed series in `tests/conftest.py`.
+diagnostix draws no random numbers; its tests do, for ensembles and property tests. A failing `hypothesis` example is pinned with an explicit `@example` so it keeps being run.
 
 - **Incidental randomness** (any draw would do): seed it (`random.Random(0)`, `numpy.random.default_rng(0)`, a fixed key) so a failure reproduces.
 - **Sampling behaviour under test** (a Monte Carlo estimate, a statistical property): bound the statistic by its own sampling distribution (a number of standard errors, a test's p-value floor), not by a tolerance tuned on one draw, and say in a comment where the bound comes from.
@@ -210,9 +199,9 @@ CI ("Tests", `ci.yml`) runs every tier with coverage on Python 3.12 and 3.13 (`u
 All of these must pass, from the repo root:
 
 1. `uv run poe test`: zero failures (doctests included).
-2. `uv run --group lint ruff check .`: the **entire** repo, which includes `tests/`, `scripts/` and the code cells of `docs/notebooks/*.ipynb`. Never lint a subdirectory: `ruff check src/mypackage/` misses errors CI catches.
+2. `uv run --group lint ruff check .`: the **entire** repo, which includes `tests/`, `scripts/` and the code cells of `docs/notebooks/*.ipynb`. Never lint a subdirectory: `ruff check src/diagnostix/` misses errors CI catches.
 3. `uv run --group lint ruff format --check .`
-4. `uv run poe typecheck` (`ty check src/mypackage scripts`, as CI runs it).
+4. `uv run poe typecheck` (`ty check src/diagnostix scripts`, as CI runs it).
 5. After changing a public API: `uv run poe capabilities`, and the `docs/api` page.
 6. After changing docs, docstrings, `mkdocs.yml` or `docs/myst.yml`: `uv run poe docs` (or at least `uv run poe docs-api` when only docstrings changed).
 7. After changing a dependency: `uv lock`, and commit `uv.lock`.
@@ -243,11 +232,9 @@ These are the `karpathy-coding-principles` skill in four lines. When you suggest
 
 Its JAX/Equinox rules apply when the package uses JAX: logic under `pkg/_src/` with public modules that only re-export, jaxtyping with the shared dim vocabulary, einx instead of `axis=` / `.T` / `reshape` / `[:, None]`, lineax for solves, arrays in `eqx.Module`s with `__check_init__` and `eqx.error_if`, `key` keyword-only and last, no silent dtype casts, `get_config()` / `from_config()`, and the four tests per public forward function (closed-form oracle, hypothesis properties, gradient check, transform invariance).
 
-<!-- template-example: this paragraph only; it records where the stdlib example departs from python-style on purpose. -->
+diagnostix computes through plain functions and frozen `dataclasses` where `python-style` uses `eqx.Module` and einx, because NumPy in must give NumPy out and JAX stays optional. Reductions use the array API's `axis=` and `xp.matmul`. Errors derive from `DiagnostixError`, which is itself a `ValueError`, so `except ValueError` keeps working. Doctests print exact floats only when the value is exactly representable; otherwise they round.
 
-The bundled example is pure standard library, so it keeps `dataclasses` (`slots=True`) where `python-style` uses `eqx.Module`, makes every error inherit the closest standard-library exception as well as the package base (an open question in `python-style`, settled here), and lets doctests print exact floats such as `2.5`.
-
-**CLIs and scripts** use `cyclopts` for arguments and `loguru` for output; never argparse, click, typer, progress `print`s or stdlib `logging`. For a repo script they are in the `dev` group already; for a package CLI they are runtime dependencies and need the usual discussion. Two exceptions remain: the example's `mypackage` CLI uses `argparse` to keep the package dependency-free (`template-example`), and `scripts/capabilities.py` still uses `argparse` and `print`; move it over when you next change it (`scripts/build_docs.py` shows the pattern: a `cyclopts.App` with `@app.default`, and `loguru` for every message).
+**CLIs and scripts** use `cyclopts` for arguments and `loguru` for output; never argparse, click, typer, progress `print`s or stdlib `logging`. For a repo script they are in the `dev` group already; diagnostix has no CLI. `scripts/capabilities.py` still uses `argparse` and `print`; move it over when you next change it (`scripts/build_docs.py` shows the pattern: a `cyclopts.App` with `@app.default`, and `loguru` for every message).
 
 ### Maths notation
 
@@ -284,7 +271,7 @@ The maintainer's skills live in [jejagents](https://github.com/jejjohnson/jejage
 ## Git, commits and pull requests
 
 - **Never** push to or merge into `main` unless explicitly told to ("push to main", "merge to main"). Work on a feature branch and commit locally; never run `git push` unless asked. "Merge the branch" means push the feature branch, not merge into `main`. Confirm before any action that affects a shared branch.
-- Commit messages and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/) with a lowercase subject (`feat(stats): add …`); CI validates PR titles (`conventional-commits.yml`). Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Breaking changes use `!` and a `BREAKING CHANGE:` footer.
+- Commit messages and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/) with a lowercase subject (`feat(columns): add …`); CI validates PR titles (`conventional-commits.yml`). Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Breaking changes use `!` and a `BREAKING CHANGE:` footer.
 - **No AI attribution.** No `Co-Authored-By:` trailer for an AI on any commit and no "Generated with …" line in a PR description, unless the maintainer asks for one; keep human co-authors' trailers.
 - **PR descriptions are for a human who did not watch the work:** why first, a small before/after table, what stays the same, one or two bullets on how it was tested. Label behaviour as "Today (bug): …" and "After this PR: …". Link review comments rather than naming reviewers.
 - Write one `Closes #N` line per issue.
@@ -329,8 +316,8 @@ The docs are built by **two tools** and deployed as one site (`docs/README.md` h
 `uv run poe docs` runs `scripts/build_docs.py`: it builds the API with `zensical build --strict` (Zensical reads `mkdocs.yml`), serves `site/` on port 8910 so mystmd can read its `objects.inv` (mystmd loads inventories only over http), runs `myst build --html --strict`, rewrites the localhost API URLs to `/reference/`, repairs anchors lowercased by mystmd's `$`-expansion bug, and fails if any internal link in the assembled `public/` site does not resolve. mystmd is a Node CLI (`npm install -g mystmd`), not a uv dependency; if its theme download is blocked, `docs/README.md` says how to build against a local clone of the theme.
 
 - **Prose is MyST Markdown**, not MkDocs-Material syntax: `:::{note}`, `:::{tab-set}`, `:::{dropdown}` directives, not `!!!` / `===` / `???`.
-- **Link to the API** with the `xref:` protocol and the **top-level** exported name: ``[`summarize`](xref:api#mypackage.summarize)``, not `mypackage.stats.summarize` (mystmd lowercases `$`-abbreviated anchors; see `docs/README.md`). A missing target fails `myst build --strict`.
-- **URLs are flat**: a page's URL is its basename, with `_` turned into `-` (`guide/quickstart.md` → `/quickstart/`, `notebooks/smoothing_deep_dive.ipynb` → `/smoothing-deep-dive/`), so keep basenames unique across `docs/`, `docs/guide/` and `docs/notebooks/`; frontmatter `slug:` is ignored.
+- **Link to the API** with the `xref:` protocol and the **top-level** exported name: ``[`DiagnostixError`](xref:api#diagnostix.DiagnostixError)``, not a deeper path (mystmd lowercases `$`-abbreviated anchors; see `docs/README.md`). A missing target fails `myst build --strict`.
+- **URLs are flat**: a page's URL is its basename, with `_` turned into `-` (`guide/quickstart.md` → `/quickstart/`, `notebooks/deep_dive.ipynb` → `/deep-dive/`), so keep basenames unique across `docs/`, `docs/guide/` and `docs/notebooks/`; frontmatter `slug:` is ignored.
 - **Site-nav URLs stay absolute** (`site.nav` in `docs/myst.yml`): the theme prefixes root-relative ones with `BASE_URL` a second time (`tests/test_build_docs.py` checks it).
 - **API pages** (`docs/api/*.md`) are MkDocs-format pages, built by Zensical (which runs only the plugins it supports and ignores the rest silently; check its plugin list before adding one): prose plus `:::` blocks, `!!!` admonitions, listed in the `nav` of `mkdocs.yml`; docstrings are Google style (`docstring_style: google`) with Unicode maths; maths in the API pages themselves goes through MathJax (`pymdownx.arithmatex`), with the `eman-style-math` macros loaded by `docs/api/javascripts/mathjax.js`.
 - **Notebooks** in `docs/notebooks/` are committed as executed `.ipynb` files, authored as jupytext percent `.py` and deleted after conversion; mystmd renders the stored outputs without re-executing, so each must be listed in the `docs/myst.yml` toc. Figures render inline with `plt.show()`: no `savefig`, no committed PNGs. `notebooks/` at the root holds scratch notebooks, outside the docs. Full standards: `.github/instructions/docs-examples.instructions.md`.

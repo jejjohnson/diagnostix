@@ -1,14 +1,14 @@
 [project]
-name = "mypackage"
-version = "0.1.7"
-description = "My short description for my project."
+name = "diagnostix"
+version = "0.0.1"
+description = "Physical and statistical diagnostics of geophysical fields on any array library."
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
 keywords = []
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development :: Libraries",
@@ -19,28 +19,53 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Development Status :: 2 - Pre-Alpha",
 ]
-dependencies = []
+dependencies = [
+    "numpy>=2.0",
+    "jaxtyping>=0.3",
+    # grids, masks, derivatives, area weights, and the diagnostics it names
+    "gridax>=0.3",
+    # constants and facts at a point
+    "geophysix>=0.0.6",
+    # the array backend, pipekit_array.functions; compat is array-api-compat
+    "pipekit-array[numpy,compat]>=0.1.3",
+]
+
+[project.optional-dependencies]
+jax = ["jax>=0.4.38"]
+xarray = ["xarray>=2024.10"]
 
 [project.urls]
-Repository = "https://github.com/jejjohnson/mypackage"
-
-[project.scripts]
-mypackage = "mypackage.cli:main"
+Repository = "https://github.com/jejjohnson/diagnostix"
 
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    "pre-commit>=4.6.0",
+    "pre-commit>=4.7.0",
     "poethepoet>=0.49.0",
     "cyclopts>=5.3.3",
     "loguru>=0.7.3",
 ]
+test = [
+    # Needs neither JAX nor xarray: the job without them installs this group too.
+    "array-api-strict>=2.3",
+    "hypothesis>=6.100",
+    "scipy>=1.14",
+]
+oracles = [
+    # Reference libraries, never runtime imports: one CI job installs them.
+    # functax is written as a URL, as the stack writes it, so uv sees one functax.
+    "functax[jax] @ git+https://github.com/jejjohnson/functax@v0.0.13",
+    "metpy>=1.6",
+    "scikit-learn>=1.5",
+    "xrft>=1.0",
+    "xskillscore>=0.0.26",
+]
 lint = [
-    "ruff>=0.15.22",
+    "ruff>=0.17.4",
 ]
 typecheck = [
-    "ty>=0.0.83",
+    "ty>=0.0.99",
 ]
 docs = [
     # The prose half of the site is built by mystmd, a Node CLI installed with
@@ -48,10 +73,10 @@ docs = [
     # Zensical (the successor to Material for MkDocs, which reached end of life
     # on 2026-11-05) builds only the API reference from mkdocs.yml; its
     # `objects.inv` is what lets the MyST prose cross-reference into it.
-    "zensical>=0.0.74",
+    "zensical>=0.1.0",
     "mkdocstrings[python]>=1.0.6",
     "jupytext>=1.19.6",
-    "ipykernel>=7.3.0",
+    "ipykernel>=7.4.0",
     "nbconvert>=7.17.2",
     # matplotlib + watermark used by the example notebooks during local
     # re-execution. The guarded watermark cell in each notebook no-ops
@@ -65,12 +90,26 @@ docs = [
     "pygments>=2.21.0,<2.22",
 ]
 
+[tool.uv]
+# gridax v0.3.0 fixes geophysix v0.0.3; until jejjohnson/gridax#566 ships, uv
+# reports "conflicting URLs for package `geophysix`" without this override.
+override-dependencies = ["geophysix @ git+https://github.com/jejjohnson/geophysix@v0.0.6"]
+
+[tool.uv.sources]
+# None of these is on PyPI: they resolve from git, by tag. Every pipekit package
+# is pinned to the one tag gridax and geophysix use, because uv refuses two refs
+# of one repository.
+gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", tag = "gridax-v0.3.0" }
+geophysix = { git = "https://github.com/jejjohnson/geophysix", tag = "v0.0.6" }
+pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-array-v0.1.3" }
+pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-array-v0.1.3" }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mypackage"]
+packages = ["src/diagnostix"]
 
 [tool.ruff]
 target-version = "py312"
@@ -78,10 +117,12 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["E402", "E721", "E731", "E741"]
+# RUF022 sorts __all__ isort-style (constants first); tests/test_public_api.py
+# keeps it in plain sorted() order instead.
+ignore = ["E402", "E721", "E731", "E741", "RUF022"]
 # Docstrings and comments carry Unicode maths (eman-style-math, "Maths
 # notation" in AGENTS.md), so the maths glyphs that look like ASCII are allowed.
-allowed-confusables = ["−", "×", "∗", "∣", "α", "γ", "ι", "ν", "ο", "ρ", "σ", "υ"]
+allowed-confusables = ["–", "−", "′", "×", "∗", "∣", "α", "γ", "ι", "ν", "ο", "ρ", "σ", "υ", "ℓ"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
@@ -100,25 +141,28 @@ docstring-code-line-length = 72
 python-version = "3.12"
 
 [tool.pytest.ini_options]
-# `src/mypackage` is a testpath so that --doctest-modules collects the
+# `src/diagnostix` is a testpath so that --doctest-modules collects the
 # ``Examples:`` blocks in every Google-style docstring. They are executable
 # documentation: if an example in the docs goes stale, CI fails.
-testpaths = ["tests", "src/mypackage"]
+testpaths = ["tests", "src/diagnostix"]
 # Test tiers (see "Test tiers" in AGENTS.md). CI runs every tier.
 strict_markers = true
 markers = [
     "slow: takes over ~1 s; deselect with -m 'not slow'",
     "integration: end-to-end workflows, optional dependencies, external tools",
+    "jax: needs JAX; skipped when it is not installed (tests/conftest.py)",
+    "xarray: needs xarray; skipped when it is not installed (tests/conftest.py)",
+    "oracle: compares against a library of the oracles group",
 ]
 addopts = """\
     --doctest-modules \
-    --cov=src/mypackage \
+    --cov=src/diagnostix \
     --cov-report=term-missing \
     --cov-report=xml:coverage.xml\
 """
 
 [tool.coverage.run]
-source = ["src/mypackage"]
+source = ["src/diagnostix"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
@@ -135,7 +179,7 @@ exclude_also = [
 #   uv run poe            # list every task with its help text
 #   uv run poe install    # first run: `uv run` syncs the dev group, so poe exists
 # Extra arguments are passed through to the underlying command, e.g.
-#   uv run poe test tests/test_stats.py -k summarize
+#   uv run poe test tests/test_exceptions.py -k base
 # ---------------------------------------------------------------------------
 [tool.poe]
 # Tasks call `uv run --group …` themselves, exactly as CI does, so poe must not
@@ -146,7 +190,7 @@ envfile = { optional = ".env" }
 
 [tool.poe.env]
 # Overridable from .env or the shell.
-PKGROOT.default = "src/mypackage"
+PKGROOT.default = "src/diagnostix"
 TYPECHECK_EXTRA.default = "scripts"
 
 # --- Meta -------------------------------------------------------------------

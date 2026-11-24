@@ -1,46 +1,33 @@
-"""Shared pytest fixtures.
+"""Shared pytest configuration.
 
-Fixtures live here rather than in individual test modules so that every test
-file sees the same reference data — when an expected value changes, it changes
-in exactly one place.
+JAX and xarray are optional. When JAX is importable, 64-bit mode is switched on
+so that float64 reference comparisons are meaningful; tests marked ``jax`` or
+``xarray`` are skipped when that library is missing.
 """
 
 from __future__ import annotations
 
-import math
-from collections.abc import Iterator
-from pathlib import Path
+import importlib.util
 
 import pytest
 
 
-@pytest.fixture
-def simple_series() -> list[float]:
-    """A short ascending series with easy closed-form statistics."""
-    return [1.0, 2.0, 3.0, 4.0, 5.0]
+try:
+    import jax
+except ImportError:  # pragma: no cover - exercised in the job without JAX
+    pass
+else:
+    jax.config.update("jax_enable_x64", True)
+
+_OPTIONAL = ("jax", "xarray")
 
 
-@pytest.fixture
-def wikipedia_series() -> list[float]:
-    """The canonical variance example: mean 5, population variance 4."""
-    return [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]
-
-
-@pytest.fixture
-def spiky_series() -> list[float]:
-    """A flat series with a single large outlier in the middle."""
-    return [1.0, 1.0, 1.0, 99.0, 1.0, 1.0, 1.0]
-
-
-@pytest.fixture
-def sine_series() -> list[float]:
-    """A noiseless sine wave, sampled over one period."""
-    return [math.sin(2.0 * math.pi * index / 32.0) for index in range(32)]
-
-
-@pytest.fixture
-def series_file(tmp_path: Path, simple_series: list[float]) -> Iterator[Path]:
-    """A temporary file holding ``simple_series`` as whitespace-separated text."""
-    path = tmp_path / "series.txt"
-    path.write_text(" ".join(str(value) for value in simple_series), encoding="utf-8")
-    yield path
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Skip the tests whose marker names a library that is not installed."""
+    for name in _OPTIONAL:
+        if importlib.util.find_spec(name) is not None:
+            continue
+        missing = pytest.mark.skip(reason=f"{name} is not installed")
+        for item in items:
+            if item.get_closest_marker(name) is not None:
+                item.add_marker(missing)
