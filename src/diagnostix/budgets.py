@@ -6,6 +6,12 @@ equals the area sum of the flux divergence inside, to round-off.
 
 from __future__ import annotations
 
+from diagnostix._src.budgets.budget import (
+    Budget,
+    budget,
+    cell_residual,
+    region_integral,
+)
 from diagnostix._src.budgets.flux import (
     boundary_flux,
     face_fluxes,
@@ -14,4 +20,13 @@ from diagnostix._src.budgets.flux import (
 from diagnostix._src.budgets.volume import ControlVolume
 
 
-__all__ = ["ControlVolume", "boundary_flux", "face_fluxes", "flux_divergence"]
+__all__ = [
+    "Budget",
+    "ControlVolume",
+    "boundary_flux",
+    "budget",
+    "cell_residual",
+    "face_fluxes",
+    "flux_divergence",
+    "region_integral",
+]
