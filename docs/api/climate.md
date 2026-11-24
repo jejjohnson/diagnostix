@@ -14,6 +14,17 @@ daily = climatology(x, day, axis=0, base=year < 2020)
 cycle = harmonic_climatology(x, day, axis=0, base=year < 2020)
 ```
 
+`anomaly` takes a climatology away from each sample and `add_climatology` gives it back, exactly. `linear_trend` and `detrend` centre the times before they square them, so days since 1950 do for float32 samples, and give no significance: that of a correlated series is a modelling choice. `running_mean` has an odd window, skips invalid samples, and is truncated at the ends unless the series wraps.
+
+```python
+from diagnostix.climate import add_climatology, anomaly, detrend
+
+# x′ = x − x̄(d), without its trend
+departure = detrend(anomaly(x, cycle, day, axis=0), days_since_1950, axis=0)
+# back to x
+x = add_climatology(anomaly(x, cycle, day, axis=0), cycle, day, axis=0)
+```
+
 The grouping is static: slots and the base period are concrete, and under JAX only the samples are traced. `valid` says which samples count (True = use); a NaN in a valid sample gives NaN.
 
 29 February has a quarter of the samples of its neighbours, and a quarter of their weight in the harmonic fit and in `smooth_climatology`.

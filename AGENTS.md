@@ -20,7 +20,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `kinematics` | Velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | now |
 | `columns` | Vertical derivative, N², lapse rate, column integrals, first crossings, mixed-layer depth, bulk Richardson number, boundary-layer height | now |
 | `budgets` | Control volumes, face and boundary fluxes, the flux divergence, region integrals, budgets and their residuals | now |
-| `climate` | Calendar days, climatologies, harmonic fits and smoothing; anomalies, trends and running means to come | now, growing in Wave 2 |
+| `climate` | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | now |
 | `spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |
 | `eofs` | Area-weighted EOFs and their reading | Wave 3 |
 | `skill` | Pointwise, ensemble, spectral and physical scores | Wave 4 |
