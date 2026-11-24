@@ -1,4 +1,4 @@
-"""The arguments of a function of a horizontal velocity on a collocated grid."""
+"""The arguments of a function on a collocated grid, and the grid's metric."""
 
 from __future__ import annotations
 
@@ -6,15 +6,17 @@ from types import ModuleType
 from typing import Any
 
 import gridax
+import numpy as np
 from pipekit_array.functions import floating_inputs
 
+from diagnostix._src.reduce import on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
 
-__all__ = ["grid_inputs"]
+__all__ = ["grid_inputs", "metric_like", "require_collocated"]
 
-#: The grids of `diagnostix.kinematics`: every field at the same points.
+#: The grids of a function on a grid: 2-D, every field at the same points.
 COLLOCATED = (gridax.CartesianAGrid2D, gridax.SphericalAGrid2D)
 
 
@@ -41,10 +43,7 @@ def grid_inputs(
         ValidationError: If the grid is not collocated and 2-D, or a field does
             not end in its shape.
     """
-    if not isinstance(grid, COLLOCATED):
-        names = " or ".join(kind.__name__ for kind in COLLOCATED)
-        msg = f"'grid' must be a {names}, got {type(grid).__name__}"
-        raise ValidationError(msg)
+    require_collocated(grid)
     xp, arrays = floating_inputs(*fields, *broadcast, params=params)
     for field in arrays[: len(fields)]:
         if tuple(field.shape[-2:]) != grid.shape:
@@ -54,3 +53,26 @@ def grid_inputs(
             )
             raise ValidationError(msg)
     return xp, arrays
+
+
+def require_collocated(grid: Any) -> None:
+    """Raise unless a grid is one of `COLLOCATED`.
+
+    Raises:
+        ValidationError: If it is not.
+    """
+    if not isinstance(grid, COLLOCATED):
+        names = " or ".join(kind.__name__ for kind in COLLOCATED)
+        msg = f"'grid' must be a {names}, got {type(grid).__name__}"
+        raise ValidationError(msg)
+
+
+def metric_like(xp: ModuleType, metric: Any, ref: Any) -> Any:
+    """A metric of a grid in ``ref``'s library and dtype, on its device.
+
+    The metric is a property of the grid, NumPy or traced with it, and takes the
+    precision of the field.
+    """
+    if isinstance(metric, (np.ndarray, np.generic)):
+        metric = on_device(xp, np.asarray(metric), ref)
+    return xp.astype(metric, ref.dtype)

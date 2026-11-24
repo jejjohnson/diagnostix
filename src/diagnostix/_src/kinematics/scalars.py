@@ -6,8 +6,8 @@ from typing import Any
 
 import gridax
 
+from diagnostix._src.grids import grid_inputs
 from diagnostix._src.kinematics.gradient import velocity_gradient
-from diagnostix._src.kinematics.inputs import grid_inputs
 from diagnostix._typing import ArrayLike
 
 

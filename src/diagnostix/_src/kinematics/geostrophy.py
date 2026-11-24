@@ -8,7 +8,7 @@ import gridax
 from geophysix.constants import STANDARD
 from pipekit_array.functions import like
 
-from diagnostix._src.kinematics.inputs import grid_inputs
+from diagnostix._src.grids import grid_inputs
 from diagnostix._typing import ArrayLike
 
 

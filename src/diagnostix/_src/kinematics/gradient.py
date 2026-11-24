@@ -10,7 +10,7 @@ import gridax
 from jaxtyping import Float
 from pipekit_array.functions import floating_inputs, namespace_of
 
-from diagnostix._src.kinematics.inputs import grid_inputs
+from diagnostix._src.grids import grid_inputs
 from diagnostix._src.records import register_record
 from diagnostix._typing import ArrayLike
 
