@@ -6,8 +6,17 @@ column has its own. Functions here take plain arrays and levels in metres.
 
 from __future__ import annotations
 
+from diagnostix._src.columns.boundary_layer import (
+    boundary_layer_height,
+    bulk_richardson,
+)
 from diagnostix._src.columns.crossing import first_crossing
 from diagnostix._src.columns.mixed_layer import mixed_layer_depth
 
 
-__all__ = ["first_crossing", "mixed_layer_depth"]
+__all__ = [
+    "boundary_layer_height",
+    "bulk_richardson",
+    "first_crossing",
+    "mixed_layer_depth",
+]

@@ -13,10 +13,19 @@ from _harness import (
     assert_matches_oracle,
     assert_traces,
 )
-from _oracles import linear_pycnocline, xrops_values
+from _oracles import (
+    linear_pycnocline,
+    neutral_layer_under_inversion,
+    xrops_values,
+)
 
 from diagnostix import ValidationError
-from diagnostix.columns import first_crossing, mixed_layer_depth
+from diagnostix.columns import (
+    boundary_layer_height,
+    bulk_richardson,
+    first_crossing,
+    mixed_layer_depth,
+)
 
 
 NAN, INF = np.nan, np.inf
@@ -298,3 +307,190 @@ class TestMixedLayerDepth:
         valid: Any = np.ones(DEPTH.size)
         with pytest.raises(ValidationError, match="'valid' must be boolean"):
             mixed_layer_depth(DEPTH, DEPTH, valid=valid)
+
+
+def sheared_columns(seed: int, shape: tuple[int, ...]) -> tuple[np.ndarray, ...]:
+    """θ_v, u, v and z of stable, sheared columns, the levels last."""
+    rng = np.random.default_rng(seed)
+    z = np.sort(rng.uniform(10.0, 2000.0, size=shape), axis=-1)
+    theta = 295.0 + 0.004 * z + 0.2 * rng.random(shape)
+    u = 5.0 + 0.004 * z + 0.5 * rng.random(shape)
+    v = 0.001 * z + 0.5 * rng.random(shape)
+    return theta, u, v, z
+
+
+class TestBulkRichardson:
+    def test_closed_form(self) -> None:
+        theta, u, v, z = sheared_columns(0, (4, 10))
+        shear = (u - u[:, :1]) ** 2 + (v - v[:, :1]) ** 2 + 80.0 * 0.4**2
+        rise = 9.80665 * (theta - theta[:, :1]) * (z - z[:, :1])
+        out = bulk_richardson(
+            theta, u, v, z, friction_velocity=0.4, friction_coefficient=80.0
+        )
+        assert_matches_oracle(out, rise / theta[:, :1] / shear, rtol=1e-13)
+        assert_matches_oracle(out[:, 0], np.zeros(4), rtol=0.0)
+
+    def test_calm_levels(self) -> None:
+        # neutral, stable, unstable, and a NaN, with no wind anywhere
+        theta = np.asarray([300.0, 300.0, 301.0, 299.0, NAN])
+        calm = np.full(5, 2.0)
+        with np.errstate(all="raise"):
+            out = bulk_richardson(theta, calm, calm, np.arange(5.0))
+        assert_matches_oracle(out, np.asarray([0.0, 0.0, INF, -INF, NAN]), rtol=0.0)
+
+    def test_levels_on_another_axis(self) -> None:
+        theta, u, v, z = sheared_columns(1, (4, 3, 10))
+        expected = bulk_richardson(theta, u, v, z)
+        assert expected.shape == theta.shape
+        moved = (np.moveaxis(field, -1, 1) for field in (theta, u, v, z))
+        out = bulk_richardson(*moved, axis=1)
+        assert_matches_oracle(np.moveaxis(out, 1, -1), expected, rtol=0.0)
+
+    def test_backends_and_precision(self) -> None:
+        # powers of two, so that float32 keeps the differences
+        z = np.asarray([0.0, 64.0, 128.0, 256.0])
+        theta = np.asarray([[256.0, 256.0, 257.0, 260.0], [256.0, 255.0, 258.0, 256.0]])
+        u = np.asarray([2.0, 4.0, 2.0, 6.0])
+        assert_backends_agree(
+            lambda theta, u, z: bulk_richardson(theta, u, 0.5 * u, z), theta, u, z
+        )
+        friction = np.asarray([0.0, 0.5])
+        assert_backends_agree(
+            lambda theta, u, z, friction: bulk_richardson(
+                theta, u, 0.5 * u, z, friction_velocity=friction
+            ),
+            theta,
+            u,
+            z,
+            friction,
+        )
+
+    def test_refuses_dataarrays(self) -> None:
+        assert_refuses_dataarrays(bulk_richardson, *sheared_columns(2, (2, 4)))
+
+
+class TestBoundaryLayerHeight:
+    def test_neutral_layer_under_an_inversion(self) -> None:
+        height = np.asarray([10.0, 150.0, 400.0, 700.0, 850.0, 1000.0, 1300.0])
+        profile = neutral_layer_under_inversion(height)
+        fields = profile.fields
+        out = boundary_layer_height(fields["theta_v"], fields["u"], fields["v"], height)
+        # 300 K in float64 is known to 6e-14, over a rise of 0.25 K
+        assert_matches_oracle(out, np.asarray(profile.expected), rtol=1e-10)
+
+    def test_stored_xrops_values(self) -> None:
+        stored = xrops_values("columns")
+        out = boundary_layer_height(
+            stored["air_theta_v"],
+            stored["air_u"],
+            stored["air_v"],
+            stored["air_height"],
+        )
+        # a calm level, and a neutral column that never gets there
+        assert np.isnan(out[5]) and not np.isnan(out[:5]).any()
+        assert_matches_oracle(out, stored["air_boundary_layer_height"], rtol=1e-12)
+
+    def test_the_example_of_plumax(self) -> None:
+        # plumax met/_src/pbl.py at 96449d2, whose levels are 25, 75, …, 975 m
+        z = np.linspace(25.0, 975.0, 20)
+        theta = 300.0 + 0.01 * np.maximum(z - 400.0, 0.0)
+        out = boundary_layer_height(theta, 2.0 + 0.005 * z, np.zeros(20), z)
+        # Ri_b(425 m) = g · 0.25 · 400 / (300 · 2²), from 0 at 375 m
+        upper = 9.80665 * 0.25 * 400.0 / (300.0 * 4.0)
+        assert_matches_oracle(out, np.asarray(375.0 + 50.0 * 0.25 / upper), rtol=1e-10)
+
+    @pytest.mark.parametrize(
+        ("aloft", "expected"),
+        [
+            pytest.param(301.0, 100.0, id="stable: the level below"),
+            pytest.param(299.0, NAN, id="unstable"),
+            pytest.param(300.0, NAN, id="neutral"),
+        ],
+    )
+    def test_a_calm_level(self, aloft: float, expected: float) -> None:
+        # the second level is calm against the surface, the first is sheared
+        theta = np.asarray([300.0, 300.0, aloft])
+        u = np.asarray([2.0, 4.0, 2.0])
+        z = np.asarray([0.0, 100.0, 200.0])
+        out = boundary_layer_height(theta, u, np.zeros(3), z)
+        assert_matches_oracle(out, np.asarray(expected), rtol=0.0)
+
+    def test_a_calm_column_with_a_friction_velocity(self) -> None:
+        z = np.linspace(0.0, 1000.0, 11)
+        theta = 300.0 + 0.005 * z
+        out = boundary_layer_height(
+            theta, np.zeros(11), np.zeros(11), z, friction_velocity=0.2
+        )
+        # Ri_b = g γ z² / (θ_s b u∗²) is 0.409 at 100 m, from 0 at the surface
+        upper = 9.80665 * 0.005 * 100.0**2 / (300.0 * 100.0 * 0.2**2)
+        assert_matches_oracle(out, np.asarray(100.0 * 0.25 / upper), rtol=1e-12)
+
+    def test_a_friction_velocity_per_column(self) -> None:
+        theta, u, v, z = sheared_columns(3, (5, 3, 12))
+        friction = np.linspace(0.1, 1.0, 15).reshape(5, 3)
+        out = boundary_layer_height(theta, u, v, z, friction_velocity=friction)
+        one = boundary_layer_height(
+            theta[2, 1], u[2, 1], v[2, 1], z[2, 1], friction_velocity=friction[2, 1]
+        )
+        assert out.shape == (5, 3)
+        assert_matches_oracle(out[2, 1], one, rtol=0.0)
+
+    def test_a_nan_below_the_height(self) -> None:
+        theta, u, v, z = sheared_columns(4, (2, 12))
+        theta[1, 1] = NAN
+        out = boundary_layer_height(theta, u, v, z)
+        assert np.isfinite(out[0]) and np.isnan(out[1])
+
+    def test_levels_on_another_axis(self) -> None:
+        theta, u, v, z = sheared_columns(5, (4, 3, 12))
+        expected = boundary_layer_height(theta, u, v, z)
+        moved = (np.moveaxis(field, -1, 0) for field in (theta, u, v, z))
+        out = boundary_layer_height(*moved, axis=0)
+        assert_matches_oracle(out, expected, rtol=0.0)
+
+    def test_backends_and_precision(self) -> None:
+        z = np.asarray([0.0, 64.0, 128.0, 256.0])
+        theta = np.asarray([[256.0, 256.0, 257.0, 260.0], [256.0, 255.0, 256.0, 256.0]])
+        u = np.asarray([2.0, 4.0, 6.0, 8.0])
+        assert_backends_agree(boundary_layer_height, theta, u, 0.5 * u, z)
+
+    def test_refuses_dataarrays(self) -> None:
+        assert_refuses_dataarrays(boundary_layer_height, *sheared_columns(6, (2, 4)))
+
+    @needs_jax
+    def test_transforms(self) -> None:
+        assert_traces(boundary_layer_height, *sheared_columns(7, (3, 4, 12)))
+
+    @needs_jax
+    def test_gradients(self) -> None:
+        theta, u, v, z = sheared_columns(8, (2, 10))
+        assert_grad_matches_fd(
+            lambda x: boundary_layer_height(x, u, v, z), theta, rtol=1e-5
+        )
+        assert_grad_matches_fd(
+            lambda x: boundary_layer_height(theta, x, v, z), u, rtol=1e-5
+        )
+        assert_grad_matches_fd(
+            lambda x: boundary_layer_height(
+                theta, u, v, z, friction_velocity=x, critical=0.1
+            ),
+            np.full(2, 0.3),
+            rtol=1e-5,
+        )
+
+    @needs_jax
+    def test_gradients_of_the_undefined_are_finite(self) -> None:
+        # calm and stable, calm and unstable, neutral, and all calm
+        theta = np.asarray(
+            [
+                [300.0, 300.0, 301.0, 302.0],
+                [300.0, 300.0, 299.0, 302.0],
+                [300.0, 300.0, 300.0, 300.0],
+                [300.0, 300.5, 301.0, 302.0],
+            ]
+        )
+        u = np.asarray([[2.0, 4.0, 2.0, 5.0]] * 3 + [[2.0] * 4])
+        v = np.zeros((4, 4))
+        z = np.asarray([0.0, 100.0, 200.0, 300.0])
+        assert_finite_gradient(lambda x: boundary_layer_height(x, u, v, z), theta)
+        assert_finite_gradient(lambda x: boundary_layer_height(theta, x, v, z), u)
