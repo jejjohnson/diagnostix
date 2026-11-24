@@ -18,7 +18,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `_typing.py` | The `ArrayLike` type alias | now |
 | `exceptions.py` | `DiagnostixError` (a `ValueError`) and its subclass `ValidationError`; pipekit's `BackendError` | now |
 | `kinematics` | Velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | Wave 1 |
-| `columns` | First crossings, mixed-layer depth; N², lapse rate, boundary-layer height, column integrals to come | now, growing in Wave 1 |
+| `columns` | First crossings, mixed-layer depth, bulk Richardson number, boundary-layer height; N², lapse rate, column integrals to come | now, growing in Wave 1 |
 | `budgets` | Control volumes, boundary fluxes, budgets and their residuals | Wave 2 |
 | `climate` | Climatologies, anomalies, trends, running means | Wave 2 |
 | `spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |
