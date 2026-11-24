@@ -25,7 +25,7 @@ dependencies = [
     # grids, masks, derivatives, area weights, and the diagnostics it names
     "gridax>=0.3",
     # constants and facts at a point
-    "geophysix>=0.0.6",
+    "geophysix>=0.0.7",
     # the array backend, pipekit_array.functions; compat is array-api-compat
     "pipekit-array[numpy,compat]>=0.1.4",
     # the import hook that registers records with JAX; pipekit-array brings it too
@@ -92,22 +92,13 @@ docs = [
     "pygments>=2.21.0,<2.22",
 ]
 
-[tool.uv]
-# gridax fixes geophysix v0.0.3 (jejjohnson/gridax#566), and geophysix v0.0.6 an
-# older tag of pipekit; uv reports conflicting URLs without these overrides.
-override-dependencies = [
-    "geophysix @ git+https://github.com/jejjohnson/geophysix@v0.0.6",
-    "pipekit-array[numpy,compat] @ git+https://github.com/jejjohnson/pipekit@pipekit-array-v0.1.4#subdirectory=packages/pipekit-array",
-    "pipekit-ops @ git+https://github.com/jejjohnson/pipekit@pipekit-array-v0.1.4#subdirectory=packages/pipekit-ops",
-]
-
 [tool.uv.sources]
 # None of these is on PyPI: they resolve from git, by tag. Every pipekit package
-# is pinned to the one tag gridax uses, because uv refuses two refs of one
-# repository. gridax is at a commit, past v0.3.0, which imports JAX where it is
-# installed, until its next release.
-gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", rev = "c8323feb26d61e224bc2c31f62aaf9cc2a06cd53" }
-geophysix = { git = "https://github.com/jejjohnson/geophysix", tag = "v0.0.6" }
+# is pinned to the one tag gridax and geophysix use, because uv refuses two refs
+# of one repository. gridax is at a commit, past v0.3.0, which imports JAX
+# where it is installed, until its next release.
+gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", rev = "9a9cb756e049460e58472fabfb250392a2ccb23b" }
+geophysix = { git = "https://github.com/jejjohnson/geophysix", tag = "v0.0.7" }
 pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-array-v0.1.4" }
 pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-array-v0.1.4" }
 

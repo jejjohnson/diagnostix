@@ -10,13 +10,6 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
-[manifest]
-overrides = [
-    { name = "geophysix", git = "https://github.com/jejjohnson/geophysix?tag=v0.0.6" },
-    { name = "pipekit-array", extras = ["numpy", "compat"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.4" },
-    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.4" },
-]
-
 [[package]]
 name = "appnope"
 version = "1.0.0"
@@ -459,8 +452,8 @@ typecheck = [
 
 [package.metadata]
 requires-dist = [
-    { name = "geophysix", git = "https://github.com/jejjohnson/geophysix?tag=v0.0.6" },
-    { name = "gridax", git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=c8323feb26d61e224bc2c31f62aaf9cc2a06cd53" },
+    { name = "geophysix", git = "https://github.com/jejjohnson/geophysix?tag=v0.0.7" },
+    { name = "gridax", git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=9a9cb756e049460e58472fabfb250392a2ccb23b" },
     { name = "jax", marker = "extra == 'jax'", specifier = ">=0.4.38" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "numpy", specifier = ">=2.0" },
@@ -684,8 +677,8 @@ jax = [
 
 [[package]]
 name = "geophysix"
-version = "0.0.6"
-source = { git = "https://github.com/jejjohnson/geophysix?tag=v0.0.6#f9e1b742fbc87221cf0feeaa066e1010db555d36" }
+version = "0.0.7"
+source = { git = "https://github.com/jejjohnson/geophysix?tag=v0.0.7#dbdd72e013bc540e2d4fb1aea14c78d716f9329b" }
 dependencies = [
     { name = "numpy" },
     { name = "pipekit-array", extra = ["compat", "numpy"] },
@@ -706,7 +699,7 @@ wheels = [
 [[package]]
 name = "gridax"
 version = "0.3.0"
-source = { git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=c8323feb26d61e224bc2c31f62aaf9cc2a06cd53#c8323feb26d61e224bc2c31f62aaf9cc2a06cd53" }
+source = { git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=9a9cb756e049460e58472fabfb250392a2ccb23b#9a9cb756e049460e58472fabfb250392a2ccb23b" }
 dependencies = [
     { name = "geophysix" },
     { name = "jaxtyping" },
