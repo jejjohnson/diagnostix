@@ -40,10 +40,10 @@ Private code goes in `src/diagnostix/_src/<module>/<topic>.py`; the public modul
 
 In `tests/test_<module>.py`, one class per function:
 
-- **Closed form** or stored reference, with the tolerance and its source in a comment. Stored xrops values only where xrops is right (the table in #16).
-- **Backends.** NumPy, JAX and `array_api_strict` give the same values; a function that calls gridax runs on NumPy and JAX only.
-- **Transforms.** Eager, `jit` and `vmap` over a batch of one agree.
-- **Gradients.** Autodiff against central differences, and finite on the valid cells when others are invalid.
+- **Closed form** or stored reference, with the tolerance and its source in a comment (`assert_matches_oracle`; `tests/_oracles.py` has the forms). `xrops_values` only where xrops is right (the table in #16).
+- **Backends.** `assert_backends_agree`: NumPy, JAX and `array_api_strict` give the same values; a function that calls gridax passes `kinds=GRID_KINDS`; an elementwise one passes `labelled=True`, and the others have `assert_refuses_dataarrays`.
+- **Transforms.** `assert_traces`: eager, `jit` and `vmap` over a batch of one agree.
+- **Gradients.** `assert_grad_matches_fd`, and `assert_finite_gradient` on the valid cells when others are invalid.
 - **Precision.** float32 in gives float32 out.
 - **Mask.** A NaN under an invalid cell changes nothing; a NaN in a valid cell gives NaN.
 - Each invalid argument (`match=`), and an oracle of the `oracles` group where one exists (`pytest.importorskip`, marked `oracle`).
