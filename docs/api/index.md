@@ -7,7 +7,7 @@ The public API is the set of public modules below, plus the exceptions that `dia
 | Module | Contents | Status |
 |---|---|---|
 | `diagnostix.kinematics` | Velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | Wave 1 |
-| `diagnostix.columns` | N², lapse rate, first crossings, mixed-layer depth, boundary-layer height, column integrals | Wave 1 |
+| [`diagnostix.columns`](columns.md) | First crossings, mixed-layer depth; N², lapse rate, boundary-layer height and column integrals follow | Wave 1 |
 | `diagnostix.budgets` | Control volumes, boundary fluxes, budgets and their residuals | Wave 2 |
 | `diagnostix.climate` | Climatologies, anomalies, trends, running means | Wave 2 |
 | `diagnostix.spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |

@@ -18,6 +18,7 @@ from diagnostix.exceptions import ValidationError
 
 
 __all__ = [
+    "boolean_like",
     "divide_or_nan",
     "on_device",
     "reduction_inputs",
@@ -134,7 +135,7 @@ def reduction_inputs(
         w = None
     else:
         xp, (x, w) = floating_inputs(values, weights, params=(valid,))
-    m = None if valid is None else _boolean(xp, valid, x)
+    m = None if valid is None else boolean_like(xp, valid, x)
     given = [array for array in (x, w, m) if array is not None]
     broadcast = iter(xp.broadcast_arrays(*given))
     return (
@@ -145,8 +146,12 @@ def reduction_inputs(
     )
 
 
-def _boolean(xp: ModuleType, valid: ArrayLike, ref: Any) -> Any:
-    """``valid`` as a boolean array of ``ref``'s library, on its device."""
+def boolean_like(xp: ModuleType, valid: ArrayLike, ref: Any) -> Any:
+    """``valid`` as a boolean array of ``ref``'s library, on its device.
+
+    Raises:
+        ValidationError: If ``valid`` is not boolean.
+    """
     on_host = isinstance(valid, (bool, list, tuple, np.ndarray, np.generic))
     if on_host:
         valid = np.asarray(valid)
