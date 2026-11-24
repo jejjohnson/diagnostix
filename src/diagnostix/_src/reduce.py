@@ -113,7 +113,11 @@ def weighted_mean(
 
 
 def reduction_inputs(
-    values: ArrayLike, weights: ArrayLike | None, valid: ArrayLike | None
+    values: ArrayLike,
+    weights: ArrayLike | None,
+    valid: ArrayLike | None,
+    *,
+    params: tuple[Any, ...] = (),
 ) -> tuple[ModuleType, Any, Any, Any]:
     """The namespace of a reduction, and its inputs broadcast against each other.
 
@@ -121,6 +125,7 @@ def reduction_inputs(
         values: x.
         weights: w, or ``None``.
         valid: The validity, boolean, or ``None``.
+        params: Other arguments, which help to choose the namespace only.
 
     Returns:
         The namespace, x and w in one floating dtype, and the validity as a
@@ -131,10 +136,10 @@ def reduction_inputs(
         ValidationError: If ``valid`` is not boolean.
     """
     if weights is None:
-        xp, (x,) = floating_inputs(values, params=(valid,))
+        xp, (x,) = floating_inputs(values, params=(valid, *params))
         w = None
     else:
-        xp, (x, w) = floating_inputs(values, weights, params=(valid,))
+        xp, (x, w) = floating_inputs(values, weights, params=(valid, *params))
     m = None if valid is None else boolean_like(xp, valid, x)
     given = [array for array in (x, w, m) if array is not None]
     broadcast = iter(xp.broadcast_arrays(*given))

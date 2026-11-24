@@ -31,14 +31,14 @@ uv run poe install
 
 ## Status
 
-`kinematics` and `columns` are built. The order is:
+`kinematics`, `columns`, `budgets` and `climate` are built. The order is:
 
 | Module | Holds | Wave |
 |---|---|---|
 | `kinematics` | velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | [Wave 1](https://github.com/jejjohnson/diagnostix/issues/9), built |
 | `columns` | vertical derivative, N², lapse rate, column integrals, first crossings, mixed-layer depth, bulk Richardson number, boundary-layer height | [Wave 1](https://github.com/jejjohnson/diagnostix/issues/9), built |
-| `budgets` | control volumes, boundary fluxes, budgets and their residuals | [Wave 2](https://github.com/jejjohnson/diagnostix/issues/10) |
-| `climate` | climatologies, anomalies, trends, running means | [Wave 2](https://github.com/jejjohnson/diagnostix/issues/10) |
+| `budgets` | control volumes, boundary fluxes, budgets and their residuals | [Wave 2](https://github.com/jejjohnson/diagnostix/issues/10), built |
+| `climate` | climatologies, anomalies, trends, running means | [Wave 2](https://github.com/jejjohnson/diagnostix/issues/10), built |
 | `spectra` | power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | [Wave 3](https://github.com/jejjohnson/diagnostix/issues/11) |
 | `eofs` | area-weighted EOFs and their reading | [Wave 3](https://github.com/jejjohnson/diagnostix/issues/11) |
 | `skill` | pointwise, ensemble, spectral and physical scores | [Wave 4](https://github.com/jejjohnson/diagnostix/issues/12) |
