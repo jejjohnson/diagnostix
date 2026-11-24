@@ -28,6 +28,8 @@ dependencies = [
     "geophysix>=0.0.6",
     # the array backend, pipekit_array.functions; compat is array-api-compat
     "pipekit-array[numpy,compat]>=0.1.3",
+    # the import hook that registers records with JAX; pipekit-array brings it too
+    "pipekit-ops>=0.2.2",
 ]
 
 [project.optional-dependencies]
@@ -117,9 +119,10 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# F722 reads jaxtyping's dimension strings as annotations, and UP037 unquotes them.
 # RUF022 sorts __all__ isort-style (constants first); tests/test_public_api.py
 # keeps it in plain sorted() order instead.
-ignore = ["E402", "E721", "E731", "E741", "RUF022"]
+ignore = ["E402", "E721", "E731", "E741", "F722", "RUF022", "UP037"]
 # Docstrings and comments carry Unicode maths (eman-style-math, "Maths
 # notation" in AGENTS.md), so the maths glyphs that look like ASCII are allowed.
 allowed-confusables = ["–", "−", "′", "×", "∗", "∣", "α", "γ", "ι", "ν", "ο", "ρ", "σ", "υ", "ℓ"]

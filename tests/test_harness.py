@@ -583,6 +583,7 @@ class TestLibraries:
         biased = error - 0.5 * np.mean(pairs, axis=(1, 2))
         assert_matches_oracle(xskillscore_crps(truth, ensemble), biased, rtol=1e-12)
 
+    @pytest.mark.slow
     def test_the_eofs_are_the_two_patterns_up_to_sign(self) -> None:
         patterns = two_patterns()
         sklearn_modes, _, sklearn_variances = sklearn_pca(patterns.field, 2)

@@ -28,7 +28,7 @@ The public API is the set of public modules below; private code lives in `src/di
 ### Boundaries
 
 - **Layer rule.** diagnostix imports gridax, geophysix and the array backend `pipekit_array.functions`, and nothing else from the GeoStack at runtime. It never imports functax, integrix, gaussx, geotoolz or any GeoModels library; xrops, plumax and sesmax-ocean import it. functax is a reference library in the tests. `tests/test_import_isolation.py` checks this.
-- **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to the one tag gridax and geophysix use. JAX and xarray are extras.
+- **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`, with the `pipekit-ops` it brings. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to the one tag gridax and geophysix use. JAX and xarray are extras.
 - **Ownership test.** Does it take a field and say something about it, and does no library below already name it? Then it belongs here. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's. Extremes are xtremax's, and Lagrangian analysis is tracerax's.
 - **No convenience aliases.** A one-line combination of functions the stack has (absolute vorticity, eddy kinetic energy, f from latitude) is written by the caller, and the docs show it.
 
@@ -69,6 +69,10 @@ Before writing a helper, a constant, a conversion or a formula, find out whether
 | `xp = np if isinstance(x, np.ndarray) else jnp`, or `x.astype(float)` on an input | `namespace_of`, `floating_inputs` from `pipekit_array.functions` |
 | A constant as an array of the input's dtype, on its device | `pipekit_array.functions.like` |
 | `isinstance(x, xr.DataArray)`, or a call to `xr.apply_ufunc` | `@elementwise` and `is_dataarray` from `pipekit_array.functions` |
+| `nansum`, `nanmean`, a sum or mean with a mask or weights | `weighted_sum`, `weighted_mean` from `diagnostix._src.reduce` |
+| `bincount`, `segment_sum`, a `groupby`, an average over rings, days or bins | `Groups` from `diagnostix._src.groups`, built once on the host |
+| A ratio that is NaN where its denominator is 0, a host table on an array's device | `divide_or_nan`, `on_device` from `diagnostix._src.reduce` |
+| A frozen result that must be a JAX pytree | `@register_record` from `diagnostix._src.records` |
 | A new exception for a bad argument | `ValidationError` |
 
 ## The contracts
