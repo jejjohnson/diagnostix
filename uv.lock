@@ -460,7 +460,7 @@ typecheck = [
 [package.metadata]
 requires-dist = [
     { name = "geophysix", git = "https://github.com/jejjohnson/geophysix?tag=v0.0.6" },
-    { name = "gridax", git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=8ea923729ec56f37060b3ab89a918024f5fd316b" },
+    { name = "gridax", git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=c8323feb26d61e224bc2c31f62aaf9cc2a06cd53" },
     { name = "jax", marker = "extra == 'jax'", specifier = ">=0.4.38" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "numpy", specifier = ">=2.0" },
@@ -706,7 +706,7 @@ wheels = [
 [[package]]
 name = "gridax"
 version = "0.3.0"
-source = { git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=8ea923729ec56f37060b3ab89a918024f5fd316b#8ea923729ec56f37060b3ab89a918024f5fd316b" }
+source = { git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=c8323feb26d61e224bc2c31f62aaf9cc2a06cd53#c8323feb26d61e224bc2c31f62aaf9cc2a06cd53" }
 dependencies = [
     { name = "geophysix" },
     { name = "jaxtyping" },

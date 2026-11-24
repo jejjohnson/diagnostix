@@ -106,7 +106,7 @@ override-dependencies = [
 # is pinned to the one tag gridax uses, because uv refuses two refs of one
 # repository. gridax is at a commit, past v0.3.0, which imports JAX where it is
 # installed, until its next release.
-gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", rev = "8ea923729ec56f37060b3ab89a918024f5fd316b" }
+gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", rev = "c8323feb26d61e224bc2c31f62aaf9cc2a06cd53" }
 geophysix = { git = "https://github.com/jejjohnson/geophysix", tag = "v0.0.6" }
 pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-array-v0.1.4" }
 pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-array-v0.1.4" }
