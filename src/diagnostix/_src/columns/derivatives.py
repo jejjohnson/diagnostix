@@ -15,7 +15,12 @@ from diagnostix._src.columns.levels import column_inputs, levels_back
 from diagnostix._typing import ArrayLike
 
 
-__all__ = ["buoyancy_frequency_squared", "lapse_rate", "vertical_derivative"]
+__all__ = [
+    "buoyancy_frequency_squared",
+    "lapse_rate",
+    "uneven_difference",
+    "vertical_derivative",
+]
 
 
 def vertical_derivative(values: ArrayLike, z: ArrayLike, *, axis: int = -1) -> Any:
@@ -54,12 +59,15 @@ def vertical_derivative(values: ArrayLike, z: ArrayLike, *, axis: int = -1) -> A
         _, (_, levels) = floating_inputs(values, z)
         out = gridax.analysis.difference(f, axis=-1, coords=levels)
     else:
-        out = _uneven(xp, f, columns)
+        out = uneven_difference(xp, f, columns)
     return levels_back(xp, out, axis)
 
 
-def _uneven(xp: ModuleType, f: Any, z: Any) -> Any:
-    """``gridax.analysis.difference`` where each column has its own levels."""
+def uneven_difference(xp: ModuleType, f: Any, z: Any) -> Any:
+    """``gridax.analysis.difference`` along the last axis, any positions ``z``.
+
+    It takes positions per column, two points or more, and any array library.
+    """
     spacing = z[..., 1:] - z[..., :-1]
     # sₖ = (f_{k+1} − f_k) / (z_{k+1} − z_k), one per interval
     slope = (f[..., 1:] - f[..., :-1]) / spacing

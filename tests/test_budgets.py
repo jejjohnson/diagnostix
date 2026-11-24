@@ -17,10 +17,14 @@ from _harness import (
 
 from diagnostix import ValidationError
 from diagnostix.budgets import (
+    Budget,
     ControlVolume,
     boundary_flux,
+    budget,
+    cell_residual,
     face_fluxes,
     flux_divergence,
+    region_integral,
 )
 
 
@@ -418,4 +422,353 @@ class TestFluxDivergence:
         grid = GRIDS["plane"]
         assert_refuses_dataarrays(
             lambda q, u, v: flux_divergence(q, u, v, grid), *fields(2, grid)
+        )
+
+
+TERMS = ("tendency", "boundary_flux", "source", "residual")
+#: Uneven times, in seconds since 1970, whose steps float32 cannot hold.
+TIMES = 1.7e9 + np.cumsum([0.0, 60.0, 30.0, 90.0, 60.0])
+
+
+def terms(out: Budget) -> tuple[Any, ...]:
+    return tuple(getattr(out, name) for name in TERMS)
+
+
+def run(seed: int, grid: Any, *batch: int) -> list[np.ndarray]:
+    """q, u, v, S and H over `TIMES`, positive and of order 1."""
+    rng = np.random.default_rng(seed)
+    return list(1.0 + rng.random((5, TIMES.size, *batch, *grid.shape)))
+
+
+class TestRegionIntegral:
+    @pytest.mark.parametrize("name", NAMES)
+    def test_the_area_of_the_region(self, name: str) -> None:
+        grid = GRIDS[name]
+        volume = ControlVolume.from_region(region(0, grid), grid)
+        area = gridax.area_weights(grid)[volume.inside].sum()
+        out = region_integral(1.0, grid, volume)
+        assert_matches_oracle(out, np.asarray(area), rtol=1e-14)
+
+    def test_a_field_with_a_thickness(self) -> None:
+        grid = GRIDS["uneven sphere"]
+        q, _, _, _, height = run(0, grid)
+        volume = ControlVolume.from_region(region(1, grid), grid)
+        expected = (q * height * gridax.area_weights(grid))[:, volume.inside]
+        out = region_integral(q, grid, volume, thickness=height)
+        assert_matches_oracle(out, expected.sum(axis=-1), rtol=1e-13)
+
+    def test_only_the_cells_inside_are_read(self) -> None:
+        grid = GRIDS["plane"]
+        volume = ControlVolume.from_region(region(2, grid), grid)
+        q = fields(0, grid)[0]
+        expected = region_integral(q, grid, volume)
+        spoiled = np.where(volume.inside, q, np.nan)
+        assert_matches_oracle(
+            region_integral(spoiled, grid, volume), expected, rtol=0.0
+        )
+        assert np.isnan(
+            region_integral(np.where(volume.inside, np.nan, q), grid, volume)
+        )
+
+    @pytest.mark.parametrize("name", NAMES)
+    def test_backends_and_precision(self, name: str) -> None:
+        grid = GRIDS[name]
+        volume = ControlVolume.from_region(region(3, grid), grid)
+        assert_backends_agree(
+            lambda q, h: region_integral(q, grid, volume, thickness=h),
+            *fields(1, grid, 2)[:2],
+        )
+
+    def test_refuses_dataarrays(self) -> None:
+        grid = GRIDS["plane"]
+        volume = ControlVolume.from_region(region(4, grid), grid)
+        q, height, _ = fields(2, grid)
+        assert_refuses_dataarrays(
+            lambda q, h: region_integral(q, grid, volume, thickness=h), q, height
+        )
+
+    @needs_jax
+    def test_transforms_and_gradients(self) -> None:
+        grid = GRIDS["plane"]
+        volume = ControlVolume.from_region(region(5, grid), grid)
+        q = fields(3, grid, 3)[0]
+        assert_traces(lambda q: region_integral(q, grid, volume), q)
+        assert_grad_matches_fd(lambda q: region_integral(q, grid, volume), q[0])
+        spoiled = np.where(volume.inside, q[0], np.nan)
+        assert_finite_gradient(lambda q: region_integral(q, grid, volume), spoiled)
+
+
+class TestBudget:
+    @pytest.mark.parametrize("name", ["torus", "channel"])
+    def test_a_forward_euler_run_closes(self, name: str) -> None:
+        # q^{n+1} = q^n + Δt (S − ∇·(q u)), off the edges
+        grid = GRIDS[name]
+        u, v = np.random.default_rng(0).normal(size=(2, *grid.shape))
+        added = np.random.default_rng(1).random(grid.shape)
+        time = np.asarray([0.0, 0.1, 0.15, 0.3])
+        steps = [np.ones(grid.shape)]
+        for step in np.diff(time):
+            out = np.nan_to_num(flux_divergence(steps[-1], u, v, grid))
+            steps.append(steps[-1] + step * (added - out))
+        q = np.stack(steps)
+        flow = [np.broadcast_to(field, q.shape) for field in (u, v)]
+        volume = ControlVolume.from_region(region(0, grid), grid)
+        options = {"time": time, "source": added, "tendency": "forward"}
+        out = budget(q, *flow, grid, volume, **options)
+        scale = np.abs(out.tendency).max() + np.abs(out.boundary_flux).max()
+        assert out.residual.shape == (3,)
+        assert_matches_oracle(out.residual / scale, np.zeros(3), rtol=0.0, atol=1e-13)
+        cells = cell_residual(q, *flow, grid, **options)[:, volume.inside]
+        assert_matches_oracle(cells, np.zeros_like(cells), rtol=0.0, atol=1e-13)
+
+    @pytest.mark.parametrize("tendency", ["centred", "forward"])
+    @pytest.mark.parametrize("name", NAMES)
+    def test_the_cells_add_up(self, name: str, tendency: Any) -> None:
+        grid = GRIDS[name]
+        q, u, v, added, height = run(1, grid)
+        volume = ControlVolume.from_region(region(1, grid), grid)
+        options = {
+            "time": TIMES,
+            "source": added,
+            "thickness": height,
+            "tendency": tendency,
+        }
+        out = budget(q, u, v, grid, volume, **options)
+        area = gridax.area_weights(grid)[volume.inside]
+        cells = cell_residual(q, u, v, grid, **options)[:, volume.inside] * area
+        error = np.abs(cells.sum(axis=-1) - out.residual)
+        assert (error < 1e-12 * np.abs(cells).sum(axis=-1)).all()
+        assert_matches_oracle(
+            out.residual,
+            out.tendency + out.boundary_flux - out.source,
+            rtol=0.0,
+        )
+
+    def test_a_closed_box_in_a_flow_without_divergence(self) -> None:
+        # a vortex of the periodic plane, whose streamlines close in the box
+        grid = gridax.CartesianAGrid2D.from_interior(
+            32, 32, 1.0, 1.0, periodic=("x", "y")
+        )
+        x, y = np.meshgrid(grid.coords("x"), grid.coords("y"))
+        wave = 2.0 * np.pi
+        u = -np.sin(wave * x) * np.cos(wave * y)
+        v = np.cos(wave * x) * np.sin(wave * y)
+        u, v = (np.broadcast_to(field, (3, 32, 32)) for field in (u, v))
+        volume = box(grid, slice(8, 24), slice(8, 24))
+        out = budget(1.0, u, v, grid, volume, time=[0.0, 1.0, 2.0])
+        assert_matches_oracle(out.tendency, np.zeros(3), rtol=0.0)
+        # every signed face has its mirror image
+        assert_matches_oracle(out.boundary_flux, np.zeros(3), rtol=0.0, atol=1e-13)
+        assert_matches_oracle(out.source, np.zeros(3), rtol=0.0)
+
+    def test_a_box_cut_through_an_advected_blob(self) -> None:
+        # the box on its flank: what flows in is what it gains, at second order
+        # in Δt, and the space is resolved far better than that
+        grid = gridax.CartesianAGrid2D.from_interior(
+            512, 16, 2.0, 1.0, periodic=("x", "y")
+        )
+        x, y = np.meshgrid(grid.coords("x"), grid.coords("y"))
+        volume = box(grid, slice(4, 12), slice(160, 360))
+        wind = 0.5
+
+        def blob(t: float) -> np.ndarray:
+            return np.exp(
+                -(((x - 0.6 - wind * t) / 0.15) ** 2) - ((y - 0.5) / 0.1) ** 2
+            )
+
+        worst = []
+        for step in (0.1, 0.05, 0.025):
+            time = 0.2 + step * np.arange(-1, 2)
+            q = np.stack([blob(t) for t in time])
+            u, v = np.full(q.shape, wind), np.zeros(q.shape)
+            out = budget(q, u, v, grid, volume, time=time)
+            worst.append(abs(float(out.residual[1] / out.boundary_flux[1])))
+        assert_matches_oracle(
+            np.divide(worst[:-1], worst[1:]), np.full(2, 4.0), rtol=0.0, atol=0.6
+        )
+
+    def test_a_steady_source(self) -> None:
+        # u c = Q(x): what the source adds flows out
+        grid = gridax.CartesianAGrid2D.from_interior(40, 10, 40.0, 10.0)
+        x, _ = np.meshgrid(grid.coords("x"), grid.coords("y"))
+        added = np.where((x > 10.0) & (x < 20.0), 0.3, 0.0)
+        wind = 2.0
+        # ∂ₓ(u c) = S with the flux of a face the mean of its two cells
+        faces = np.cumsum(added, axis=-1)
+        column = np.zeros_like(faces)
+        for i in range(1, 40):
+            column[:, i] = 2.0 * faces[:, i - 1] / wind - column[:, i - 1]
+        flow = np.full((3, *grid.shape), wind)
+        volume = box(grid, slice(2, 8), slice(5, 30))
+        out = budget(
+            column, flow, 0.0 * flow, grid, volume, time=[0.0, 1.0, 2.0], source=added
+        )
+        assert_matches_oracle(
+            out.source, np.full(3, added[volume.inside].sum()), rtol=1e-12
+        )
+        assert_matches_oracle(out.boundary_flux, out.source, rtol=1e-12)
+        assert_matches_oracle(out.residual, np.zeros(3), rtol=0.0, atol=1e-11)
+
+    def test_a_volume_budget_with_a_thickness(self) -> None:
+        grid = GRIDS["sphere"]
+        _, u, v, added, height = run(2, grid)
+        volume = ControlVolume.from_region(region(2, grid), grid)
+        out = budget(
+            1.0, u, v, grid, volume, time=TIMES, source=added, thickness=height
+        )
+        held = region_integral(height, grid, volume)
+        # numpy's second-order difference on uneven times, one-sided at the ends
+        expected = np.gradient(held, TIMES - TIMES[0], edge_order=1)
+        assert_matches_oracle(out.tendency, expected, rtol=1e-10)
+
+    def test_a_centred_tendency_is_exact_for_a_parabola(self) -> None:
+        grid = GRIDS["plane"]
+        volume = ControlVolume.from_region(region(3, grid), grid)
+        t = TIMES - TIMES[0]
+        rest = np.zeros((t.size, *grid.shape))
+        q = (0.5 * t**2 - 3.0 * t)[:, None, None] + rest
+        out = budget(q, rest, rest, grid, volume, time=TIMES)
+        area = gridax.area_weights(grid)[volume.inside].sum()
+        assert_matches_oracle(out.tendency[1:-1], area * (t - 3.0)[1:-1], rtol=1e-12)
+
+    def test_batches_between_time_and_space(self) -> None:
+        grid = GRIDS["uneven plane"]
+        q, u, v, added, _ = run(4, grid, 2)
+        volume = ControlVolume.from_region(region(4, grid), grid)
+        for tendency in ("centred", "forward"):
+            options: dict[str, Any] = {"time": TIMES, "tendency": tendency}
+            out = budget(q, u, v, grid, volume, source=added, **options)
+            for index in range(2):
+                one = [field[:, index] for field in (q, u, v)]
+                expected = budget(*one, grid, volume, source=added[:, index], **options)
+                for value, want in zip(terms(out), terms(expected), strict=True):
+                    assert_matches_oracle(value[:, index], want, rtol=1e-12)
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize("tendency", ["centred", "forward"])
+    def test_backends_and_precision(self, tendency: Any) -> None:
+        grid = GRIDS["sphere"]
+        q, u, v, added, height = run(5, grid)
+        # it grows, so that its tendency does not cancel
+        q = q + 50.0 * np.arange(TIMES.size)[:, None, None]
+        volume = box(grid, slice(2, 7), slice(3, 8))
+
+        def of(q: Any, u: Any, v: Any, added: Any, height: Any) -> Any:
+            out = budget(
+                q,
+                u,
+                v,
+                grid,
+                volume,
+                time=TIMES,
+                source=added,
+                thickness=1.0 + 0.0 * height,
+                tendency=tendency,
+            )
+            return out.tendency, out.source
+
+        # relative to a tendency that is a difference of contents
+        assert_backends_agree(of, q, u, v, added, height, rtol=1e-11, rtol32=1e-4)
+
+    @needs_jax
+    @pytest.mark.slow
+    def test_jit_and_gradients(self) -> None:
+        import jax
+        import jax.numpy as jnp
+
+        grid = GRIDS["uneven plane"]
+        q, u, v, added, height = run(6, grid)
+        volume = ControlVolume.from_region(region(6, grid), grid)
+
+        def of(q: Any, time: Any) -> Budget:
+            return budget(
+                q, u, v, grid, volume, time=time, source=added, thickness=height
+            )
+
+        out = jax.jit(of)(q, jnp.asarray(TIMES))
+        assert isinstance(out, Budget)
+        for value, want in zip(terms(out), terms(of(q, TIMES)), strict=True):
+            assert_matches_oracle(value, want, rtol=1e-9, atol=1e-9)
+        assert_grad_matches_fd(
+            lambda q: jnp.stack(terms(of(q, TIMES))), q[:2].repeat(3, axis=0)[:5]
+        )
+        assert_traces(lambda q: terms(of(q, TIMES)), np.stack([q, 2.0 * q]), rtol=1e-9)
+
+    def test_refuses_dataarrays(self) -> None:
+        grid = GRIDS["plane"]
+        volume = ControlVolume.from_region(region(7, grid), grid)
+        q, u, v, added, height = run(7, grid)
+        assert_refuses_dataarrays(
+            lambda q, u, v, s, h, t: budget(
+                q, u, v, grid, volume, time=t, source=s, thickness=h
+            ),
+            q,
+            u,
+            v,
+            added,
+            height,
+            TIMES,
+        )
+
+    def test_another_tendency(self) -> None:
+        grid = GRIDS["plane"]
+        volume = ControlVolume.from_region(region(8, grid), grid)
+        tendency: Any = "backward"
+        with pytest.raises(ValidationError, match="must be 'centred' or 'forward'"):
+            budget(*run(8, grid)[:3], grid, volume, time=TIMES, tendency=tendency)
+
+    @pytest.mark.parametrize("time", [TIMES[:-1], TIMES[:, None], 1.0])
+    def test_times_that_are_not_the_first_axis(self, time: Any) -> None:
+        with pytest.raises(ValidationError, match="'time' must be 1-D, the first"):
+            cell_residual(*run(9, GRIDS["plane"])[:3], GRIDS["plane"], time=time)
+
+    def test_one_time_or_none(self) -> None:
+        grid = GRIDS["plane"]
+        q, u, v = fields(9, grid, 1)
+        with pytest.raises(ValidationError, match="at least two"):
+            cell_residual(q, u, v, grid, time=[0.0])
+        with pytest.raises(ValidationError, match="'time' must be 1-D"):
+            cell_residual(q[0], u[0], v[0], grid, time=[0.0] * 8)
+
+
+class TestCellResidual:
+    @pytest.mark.slow
+    @pytest.mark.parametrize("tendency", ["centred", "forward"])
+    def test_backends_and_precision(self, tendency: Any) -> None:
+        grid = GRIDS["torus"]
+        q, u, v, added, _ = run(0, grid)
+        q = q + 1e3 * np.arange(TIMES.size)[:, None, None]
+        assert_backends_agree(
+            lambda q, u, v, s: cell_residual(
+                q, 1e-3 * u, 1e-3 * v, grid, time=TIMES, source=s, tendency=tendency
+            ),
+            q,
+            u,
+            v,
+            added,
+            rtol=1e-10,
+            rtol32=1e-3,
+        )
+
+    @needs_jax
+    @pytest.mark.slow
+    def test_transforms_and_gradients(self) -> None:
+        grid = GRIDS["torus"]
+        q, u, v, added, _ = run(1, grid)
+
+        def of(q: Any, s: Any) -> Any:
+            return cell_residual(q, u, v, grid, time=TIMES, source=s)
+
+        assert_traces(of, np.stack([q, 2.0 * q]), np.stack([added] * 2), rtol=1e-9)
+        assert_grad_matches_fd(lambda s: of(q, s)[2], added)
+
+    def test_refuses_dataarrays(self) -> None:
+        grid = GRIDS["plane"]
+        q, u, v, added, _ = run(2, grid)
+        assert_refuses_dataarrays(
+            lambda q, u, v, s: cell_residual(q, u, v, grid, time=TIMES, source=s),
+            q,
+            u,
+            v,
+            added,
         )

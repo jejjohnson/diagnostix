@@ -19,7 +19,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `exceptions.py` | `DiagnostixError` (a `ValueError`) and its subclass `ValidationError`; pipekit's `BackendError` | now |
 | `kinematics` | Velocity gradient, shear and curvature vorticity, advection, frontogenesis, ageostrophic velocity, geostrophic residual | now |
 | `columns` | Vertical derivative, N², lapse rate, column integrals, first crossings, mixed-layer depth, bulk Richardson number, boundary-layer height | now |
-| `budgets` | Control volumes, face and boundary fluxes, the flux divergence; budgets and their residuals to come | now, growing in Wave 2 |
+| `budgets` | Control volumes, face and boundary fluxes, the flux divergence, region integrals, budgets and their residuals | now |
 | `climate` | Climatologies, anomalies, trends, running means | Wave 2 |
 | `spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |
 | `eofs` | Area-weighted EOFs and their reading | Wave 3 |
@@ -74,6 +74,8 @@ Before writing a helper, a constant, a conversion or a formula, find out whether
 | A ratio that is NaN where its denominator is 0, a host table on an array's device | `divide_or_nan`, `on_device` from `diagnostix._src.reduce` |
 | A frozen result that must be a JAX pytree | `@register_record` from `diagnostix._src.records` |
 | The checks of a call on a grid, or a grid's metric in a field's dtype | `grid_inputs`, `metric_like` from `diagnostix._src.grids` |
+| Times in a field's precision | `time_offsets` from `diagnostix._src.times` |
+| A derivative along an axis of uneven positions | `vertical_derivative`; inside, `uneven_difference` of `_src/columns/derivatives.py` |
 | The face lengths of a grid, a mean onto its faces | `face_lengths`, `face_mean` from `diagnostix._src.budgets.faces` |
 | A new exception for a bad argument | `ValidationError` |
 

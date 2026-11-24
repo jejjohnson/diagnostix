@@ -17,6 +17,25 @@ box = ControlVolume.from_region(around_source, grid)
 rate = boundary_flux(enhancement, u, v, grid, box)
 ```
 
+A `budget` puts the tendency, the boundary flux and the source side by side, with the residual that says which of them fails to close. One function serves every quantity: the volume budget has q = 1, the heat budget the temperature, the kinetic-energy budget ½ (u² + v²), and a tracer its concentration. For model output, pass snapshots for the tendency and time means for the fluxes; the function cannot tell them apart.
+
+```python
+from diagnostix.budgets import budget
+
+# θ, u, v, H: (T, Ny, Nx); q_net: surface flux (W m⁻²)
+heat = budget(
+    theta,
+    u,
+    v,
+    grid,
+    box,
+    time=seconds,
+    thickness=layer,
+    source=q_net / (rho_0 * c_p),
+)
+heat.residual  # (T,), 0 where the budget closes
+```
+
 A missing value on either side of a face of the boundary makes the flux NaN, because a budget with a missing face does not close. Cells away from the boundary are not read.
 
 ::: diagnostix.budgets
