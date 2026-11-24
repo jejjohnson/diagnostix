@@ -12,7 +12,7 @@ from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
 
-__all__ = ["column_inputs"]
+__all__ = ["column_inputs", "levels_back"]
 
 
 def column_inputs(
@@ -59,6 +59,11 @@ def column_inputs(
     *columns, z = xp.broadcast_arrays(*on_levels)
     single = [xp.expand_dims(array, axis=-1) for array in arrays[n_fields + 1 :]]
     return xp, columns, z, single
+
+
+def levels_back(xp: ModuleType, columns: Any, axis: int) -> Any:
+    """Columns with their levels last, with the levels on ``axis`` again."""
+    return columns if columns.ndim == 1 else xp.moveaxis(columns, -1, axis)
 
 
 def _levels_last(xp: ModuleType, array: Any, axis: int) -> Any:

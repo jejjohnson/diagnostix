@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+import gridax.analysis
 import numpy as np
 import pytest
-from _backends import assert_backends_agree, assert_refuses_dataarrays, needs_jax
+from _backends import (
+    GRID_KINDS,
+    assert_backends_agree,
+    assert_refuses_dataarrays,
+    needs_jax,
+)
 from _harness import (
     assert_finite_gradient,
     assert_grad_matches_fd,
@@ -23,8 +29,12 @@ from diagnostix import ValidationError
 from diagnostix.columns import (
     boundary_layer_height,
     bulk_richardson,
+    buoyancy_frequency_squared,
+    column_integral,
     first_crossing,
+    lapse_rate,
     mixed_layer_depth,
+    vertical_derivative,
 )
 
 
@@ -494,3 +504,234 @@ class TestBoundaryLayerHeight:
         z = np.asarray([0.0, 100.0, 200.0, 300.0])
         assert_finite_gradient(lambda x: boundary_layer_height(x, u, v, z), theta)
         assert_finite_gradient(lambda x: boundary_layer_height(theta, x, v, z), u)
+
+
+def uneven_levels(seed: int, shape: tuple[int, ...]) -> np.ndarray:
+    """Increasing levels (last axis) between half and one and a half apart."""
+    rng = np.random.default_rng(seed)
+    return np.cumsum(rng.uniform(0.5, 1.5, size=shape), axis=-1)
+
+
+class TestVerticalDerivative:
+    @pytest.mark.parametrize("sign", [1.0, -1.0], ids=["up", "down"])
+    @pytest.mark.parametrize("shape", [(9,), (4, 3, 9)], ids=["shared", "per column"])
+    def test_a_quadratic_is_exact_inside(
+        self, shape: tuple[int, ...], sign: float
+    ) -> None:
+        z = sign * uneven_levels(0, shape)
+        values = np.broadcast_to(0.7 * z**2 - 2.0 * z + 1.0, (4, 3, 9))
+        out = vertical_derivative(values, z)
+        expected = np.broadcast_to(1.4 * z - 2.0, out.shape)
+        assert_matches_oracle(out[..., 1:-1], expected[..., 1:-1], rtol=0.0, atol=1e-12)
+
+    def test_shared_levels_are_gridax(self) -> None:
+        z = uneven_levels(1, (9,))
+        values = np.random.default_rng(1).normal(size=(4, 9))
+        expected = gridax.analysis.difference(values, axis=-1, coords=z)
+        assert_matches_oracle(vertical_derivative(values, z), expected, rtol=0.0)
+
+    def test_the_two_paths_agree(self) -> None:
+        z = uneven_levels(2, (9,))
+        values = np.random.default_rng(2).normal(size=(4, 9))
+        shared = vertical_derivative(values, z)
+        columns = vertical_derivative(values, np.broadcast_to(z, values.shape))
+        # a few units in the last place of the slopes, which are of order 1
+        assert_matches_oracle(columns, shared, rtol=0.0, atol=2e-14)
+
+    @pytest.mark.parametrize("shared", [True, False])
+    def test_two_levels(self, shared: bool) -> None:
+        values = np.asarray([[0.0, 3.0], [1.0, 0.0]])
+        z = np.asarray([0.0, 2.0])
+        z = z if shared else np.broadcast_to(z, values.shape)
+        expected = np.asarray([[1.5, 1.5], [-0.5, -0.5]])
+        assert_matches_oracle(vertical_derivative(values, z), expected, rtol=0.0)
+
+    @pytest.mark.parametrize("axis", [0, 1, -2])
+    def test_levels_on_another_axis(self, axis: int) -> None:
+        z = uneven_levels(3, (4, 3, 9))
+        values = np.sin(z)
+        expected = vertical_derivative(values, z)
+        out = vertical_derivative(
+            np.moveaxis(values, -1, axis), np.moveaxis(z, -1, axis), axis=axis
+        )
+        assert_matches_oracle(np.moveaxis(out, axis, -1), expected, rtol=0.0)
+        shared = vertical_derivative(np.moveaxis(values, -1, axis), z[0, 0], axis=axis)
+        expected = vertical_derivative(values, z[0, 0])
+        assert_matches_oracle(np.moveaxis(shared, axis, -1), expected, rtol=0.0)
+
+    def test_a_shared_profile_on_per_column_levels(self) -> None:
+        z = uneven_levels(4, (4, 9))
+        profile = np.arange(9.0)
+        out = vertical_derivative(profile, z)
+        expected = vertical_derivative(np.broadcast_to(profile, z.shape), z)
+        assert_matches_oracle(out, expected, rtol=0.0)
+
+    def test_a_nan_reaches_the_levels_beside_it(self) -> None:
+        z = uneven_levels(5, (2, 9))
+        values = z.copy()
+        values[0, 4] = NAN
+        out = vertical_derivative(values, z)
+        assert np.argwhere(np.isnan(out)).tolist() == [[0, 3], [0, 4], [0, 5]]
+
+    def test_backends_and_precision(self) -> None:
+        z = np.cumsum(np.asarray([0.5, 1.0, 1.5, 0.5, 2.0, 1.0]))
+        values = np.stack([z**2, 2.0 * z])
+        assert_backends_agree(
+            vertical_derivative, values, np.stack([z, 2.0 * z]), rtol32=1e-5
+        )
+        # gridax, on a shared coordinate
+        assert_backends_agree(vertical_derivative, values, z, kinds=GRID_KINDS)
+
+    def test_refuses_dataarrays(self) -> None:
+        z = uneven_levels(6, (2, 5))
+        assert_refuses_dataarrays(vertical_derivative, z, z)
+        assert_refuses_dataarrays(vertical_derivative, z, z[0])
+
+    @needs_jax
+    def test_transforms(self) -> None:
+        z = uneven_levels(7, (3, 4, 9))
+        values = np.sin(z)
+        assert_traces(vertical_derivative, values, z, rtol=1e-11)
+        assert_traces(vertical_derivative, values, z[:, 0], rtol=1e-11)
+
+    @needs_jax
+    def test_gradients(self) -> None:
+        z = uneven_levels(8, (2, 5))
+        values = np.sin(z)
+        assert_grad_matches_fd(lambda f: vertical_derivative(f, z), values)
+        assert_grad_matches_fd(lambda z: vertical_derivative(values, z), z)
+        assert_grad_matches_fd(lambda f: vertical_derivative(f, z[0]), values)
+
+    def test_levels_that_differ(self) -> None:
+        with pytest.raises(ValidationError, match=r"differ in levels: \[3, 4\]"):
+            vertical_derivative(np.zeros((2, 3)), np.arange(4.0))
+
+
+class TestBuoyancyFrequencySquared:
+    def test_a_linear_density_is_constant(self) -> None:
+        z = uneven_levels(0, (3, 8))
+        density = 1025.0 - 0.02 * z
+        out = buoyancy_frequency_squared(
+            density, z, reference_density=1000.0, gravity=10.0
+        )
+        # 1025 kg m⁻³ in float64 is known to 2e-13, over a step of 0.01
+        assert_matches_oracle(out, np.full(z.shape, 2e-4), rtol=1e-10)
+
+    def test_a_stable_column_is_positive_in_either_order(self) -> None:
+        z = uneven_levels(1, (3, 8))
+        density = 1025.0 - np.sqrt(z)
+        out = buoyancy_frequency_squared(density, z)
+        assert (out > 0).all()
+        flipped = buoyancy_frequency_squared(density[:, ::-1], z[:, ::-1])
+        assert_matches_oracle(flipped[:, ::-1], out, rtol=1e-12)
+
+    def test_stored_xrops_values(self) -> None:
+        stored = xrops_values("columns")
+        out = buoyancy_frequency_squared(
+            stored["ocean_density"],
+            -stored["ocean_depth"],
+            reference_density=1025.0,
+            gravity=9.80665,
+        )
+        # 1025 kg m⁻³ is known to 2.3e-13, over 5 m, times g/ρ₀
+        assert_matches_oracle(out, stored["ocean_n_squared"], rtol=0.0, atol=5e-16)
+
+    def test_backends_and_precision(self) -> None:
+        # an anomaly, so that float32 keeps it
+        z = np.cumsum(np.asarray([[0.5, 1.0, 1.5, 0.5], [1.0, 0.5, 0.5, 2.0]]), -1)
+        assert_backends_agree(buoyancy_frequency_squared, -0.02 * z, z)
+
+    def test_refuses_dataarrays(self) -> None:
+        z = uneven_levels(2, (2, 5))
+        assert_refuses_dataarrays(buoyancy_frequency_squared, z, z)
+
+    @needs_jax
+    def test_transforms_and_gradients(self) -> None:
+        z = uneven_levels(3, (3, 2, 6))
+        density = -np.sqrt(z)
+        assert_traces(buoyancy_frequency_squared, density, z, rtol=1e-11)
+        assert_grad_matches_fd(
+            lambda rho: buoyancy_frequency_squared(rho, z[0]), density[0]
+        )
+
+
+class TestLapseRate:
+    def test_a_linear_temperature(self) -> None:
+        z = 100.0 * uneven_levels(0, (3, 8))
+        out = lapse_rate(288.15 - 0.0065 * z, z)
+        # 288 K in float64 is known to 6e-14, over a step of 0.3 K
+        assert_matches_oracle(out, np.full(z.shape, 0.0065), rtol=1e-11)
+
+    def test_is_minus_the_derivative_on_every_axis(self) -> None:
+        z = uneven_levels(1, (8, 3))
+        values = np.sin(z)
+        z = np.sort(z, axis=0)
+        expected = -vertical_derivative(values, z, axis=0)
+        assert_matches_oracle(lapse_rate(values, z, axis=0), expected, rtol=0.0)
+
+    def test_backends_and_precision(self) -> None:
+        z = np.cumsum(np.asarray([[0.5, 1.0, 1.5, 0.5], [1.0, 0.5, 0.5, 2.0]]), -1)
+        assert_backends_agree(lapse_rate, -2.0 * z, z)
+
+    def test_refuses_dataarrays(self) -> None:
+        z = uneven_levels(2, (2, 5))
+        assert_refuses_dataarrays(lapse_rate, z, z)
+
+    @needs_jax
+    def test_transforms_and_gradients(self) -> None:
+        z = uneven_levels(3, (3, 2, 6))
+        assert_traces(lapse_rate, np.sqrt(z), z, rtol=1e-11)
+        assert_grad_matches_fd(lambda t: lapse_rate(t, z[0]), np.sqrt(z[0]))
+
+
+class TestColumnIntegral:
+    @pytest.mark.parametrize("sign", [1.0, -1.0], ids=["up", "down"])
+    def test_a_constant_and_a_line_are_exact(self, sign: float) -> None:
+        z = sign * uneven_levels(0, (3, 8))
+        ends = z[:, -1], z[:, 0]
+        constant = column_integral(np.full(z.shape, 2.5), z)
+        assert_matches_oracle(constant, 2.5 * (ends[0] - ends[1]), rtol=1e-14)
+        line = column_integral(3.0 * z - 1.0, z)
+        expected = 1.5 * (ends[0] ** 2 - ends[1] ** 2) - (ends[0] - ends[1])
+        assert_matches_oracle(line, expected, rtol=1e-13)
+
+    @pytest.mark.parametrize("method", ["trapezoid", "sum"])
+    @pytest.mark.parametrize("levels", ["per_column", "shared"])
+    def test_stored_xrops_values(self, levels: str, method: str) -> None:
+        # xrops' two rules are one sum, in two orders
+        stored = xrops_values("columns")
+        height = stored["air_height"]
+        z = height if levels == "per_column" else height[0]
+        out = column_integral(stored["air_theta_v"], z)
+        expected = stored[f"air_integral_{levels}_{method}"]
+        assert_matches_oracle(out, expected, rtol=1e-12)
+
+    def test_levels_on_another_axis(self) -> None:
+        z = uneven_levels(1, (4, 3, 8))
+        expected = column_integral(np.sin(z), z)
+        moved = np.moveaxis(z, -1, 0)
+        out = column_integral(np.sin(moved), moved, axis=0)
+        assert_matches_oracle(out, expected, rtol=1e-14)
+
+    def test_a_nan_makes_its_column_nan(self) -> None:
+        z = uneven_levels(2, (2, 8))
+        values = np.ones_like(z)
+        values[1, -1] = NAN
+        assert np.isnan(column_integral(values, z)).tolist() == [False, True]
+
+    def test_backends_and_precision(self) -> None:
+        z = np.cumsum(np.asarray([[0.5, 1.0, 1.5, 0.5], [1.0, 0.5, 0.5, 2.0]]), -1)
+        assert_backends_agree(column_integral, z**2, z)
+        assert_backends_agree(column_integral, z**2, z[0])
+
+    def test_refuses_dataarrays(self) -> None:
+        z = uneven_levels(3, (2, 5))
+        assert_refuses_dataarrays(column_integral, z, z)
+
+    @needs_jax
+    def test_transforms_and_gradients(self) -> None:
+        z = uneven_levels(4, (3, 2, 6))
+        values = np.cos(z)
+        assert_traces(column_integral, values, z)
+        assert_grad_matches_fd(lambda f: column_integral(f, z[0]), values[0])
+        assert_grad_matches_fd(lambda z: column_integral(values[0], z), z[0])

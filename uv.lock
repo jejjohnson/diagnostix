@@ -11,7 +11,11 @@ resolution-markers = [
 ]
 
 [manifest]
-overrides = [{ name = "geophysix", git = "https://github.com/jejjohnson/geophysix?tag=v0.0.6" }]
+overrides = [
+    { name = "geophysix", git = "https://github.com/jejjohnson/geophysix?tag=v0.0.6" },
+    { name = "pipekit-array", extras = ["numpy", "compat"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.4" },
+    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.4" },
+]
 
 [[package]]
 name = "appnope"
@@ -456,12 +460,12 @@ typecheck = [
 [package.metadata]
 requires-dist = [
     { name = "geophysix", git = "https://github.com/jejjohnson/geophysix?tag=v0.0.6" },
-    { name = "gridax", git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&tag=gridax-v0.3.0" },
+    { name = "gridax", git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=8ea923729ec56f37060b3ab89a918024f5fd316b" },
     { name = "jax", marker = "extra == 'jax'", specifier = ">=0.4.38" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "pipekit-array", extras = ["numpy", "compat"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.3" },
-    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.3" },
+    { name = "pipekit-array", extras = ["numpy", "compat"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.4" },
+    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.4" },
     { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2024.10" },
 ]
 provides-extras = ["jax", "xarray"]
@@ -702,7 +706,7 @@ wheels = [
 [[package]]
 name = "gridax"
 version = "0.3.0"
-source = { git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&tag=gridax-v0.3.0#b8e1975096bb4971fd79eba595b14412740b8ed0" }
+source = { git = "https://github.com/jejjohnson/gridax?subdirectory=packages%2Fgridax&rev=8ea923729ec56f37060b3ab89a918024f5fd316b#8ea923729ec56f37060b3ab89a918024f5fd316b" }
 dependencies = [
     { name = "geophysix" },
     { name = "jaxtyping" },
@@ -1710,8 +1714,8 @@ wheels = [
 
 [[package]]
 name = "pipekit-array"
-version = "0.1.3"
-source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.3#fdc9fd1c1e354916098b41d4495450a325259896" }
+version = "0.1.4"
+source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.4#30a6c197a3d70e9d23029501bdf0202bca728f35" }
 dependencies = [
     { name = "pipekit-ops" },
 ]
@@ -1726,8 +1730,8 @@ numpy = [
 
 [[package]]
 name = "pipekit-ops"
-version = "0.2.2"
-source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.3#fdc9fd1c1e354916098b41d4495450a325259896" }
+version = "0.2.3"
+source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.4#30a6c197a3d70e9d23029501bdf0202bca728f35" }
 
 [[package]]
 name = "platformdirs"

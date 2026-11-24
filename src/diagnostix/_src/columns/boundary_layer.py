@@ -9,7 +9,7 @@ from geophysix.constants import STANDARD
 from pipekit_array.functions import like
 
 from diagnostix._src.columns.crossing import crossing
-from diagnostix._src.columns.levels import column_inputs
+from diagnostix._src.columns.levels import column_inputs, levels_back
 from diagnostix._typing import ArrayLike
 
 
@@ -79,9 +79,7 @@ def bulk_richardson(
         friction_coefficient=friction_coefficient,
         gravity=gravity,
     )
-    if richardson.ndim == 1:
-        return richardson
-    return xp.moveaxis(richardson, -1, axis)
+    return levels_back(xp, richardson, axis)
 
 
 def boundary_layer_height(
