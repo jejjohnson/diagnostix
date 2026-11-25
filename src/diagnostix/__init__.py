@@ -22,7 +22,7 @@ from __future__ import annotations
 from diagnostix.exceptions import BackendError, DiagnostixError, ValidationError
 
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 __all__ = [
     "BackendError",
