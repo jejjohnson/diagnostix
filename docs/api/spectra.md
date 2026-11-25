@@ -28,6 +28,26 @@ def loss(prediction):  # relative to the truth, ring by ring
 - **Rings** of the isotropic spectrum are centred on whole multiples of Δk, and are sums of the modes in them, not means. Those beyond the smaller of the two Nyquist wavenumbers are incomplete.
 - **Gaps.** A NaN makes the whole spectrum NaN. Filling a gap changes the spectrum, so it is the caller's.
 
+## Two series
+
+`coherence` is |⟨x̂ ŷ\*⟩|² over the product of the two powers, and the averages ⟨·⟩ are the whole of it: without one it is 1 for any two series, so `coherence` asks for segments, for realisations to average over, or both. Of M independent transforms of independent noise it is 1/M, not 0.
+
+```python
+from diagnostix.spectra import coherence, cross_spectrum, rotary_spectrum
+
+# x, y: (…, T); Welch segments of 256 samples, half overlapping
+c = coherence(x, y, 3600.0, segment=256)
+# ssh_a, ssh_b: (member, Ny, Nx); over members and rows, whole rows as segments
+c = coherence(ssh_a, ssh_b, 2e3, average=(0, 1))
+# the lag at each frequency; positive where x leads y (SciPy's csd is the conjugate)
+p = cross_spectrum(x, y, 3600.0, segment=256)
+lag = jnp.angle(p.cross) / (2 * jnp.pi * p.wavenumber)
+# a current's clockwise and counter-clockwise variance
+r = rotary_spectrum(u, v, 3600.0)
+```
+
+`rotary_spectrum` splits the variance of u + iv by the way it turns. The mean is half in each part, and the one Nyquist bin of an even series is clockwise, so both parts sum to the variance of u plus that of v.
+
 ::: diagnostix.spectra
     options:
       show_root_heading: false
