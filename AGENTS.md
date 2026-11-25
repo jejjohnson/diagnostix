@@ -21,7 +21,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `columns` | Vertical derivative, N², lapse rate, column integrals, first crossings, mixed-layer depth, bulk Richardson number, boundary-layer height | now |
 | `budgets` | Control volumes, face and boundary fluxes, the flux divergence, region integrals, budgets and their residuals | now |
 | `climate` | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | now |
-| `spectra` | Power, isotropic, cross and rotary spectra, coherence, spectral fluxes, slopes and scales; wavelets in Wave 3 | now |
+| `spectra` | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | now |
 | `eofs` | Area-weighted EOFs and their reading | Wave 3 |
 | `skill` | Pointwise, ensemble, spectral and physical scores | Wave 4 |
 

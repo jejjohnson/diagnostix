@@ -67,6 +67,38 @@ The products are formed on a grid 3/2 as fine, so nothing aliases and the transf
 
 A slope is `NaN` where its band holds fewer than two bins, or a bin without power. `integral_scale` is a wavelength: the inverse of a wavenumber in cycles per unit length.
 
+## Wavelets
+
+A spectrum of a whole record hides when its variance came. `wavelet_transform` is the continuous transform of Torrence and Compo (1998), with a Morlet, a Paul or a derivative-of-Gaussian mother.
+
+```python
+from diagnostix.spectra import (
+    inverse_wavelet_transform,
+    wavelet_power_2d,
+    wavelet_significance,
+    wavelet_transform,
+)
+
+# x: (…, T), monthly anomalies; scales from 2 months to 16 years, 8 to the octave
+scales = 2.0 * 2.0 ** (np.arange(6.6 * 8) / 8)
+out = wavelet_transform(x, 1.0, scales)
+# where the power is above that of red noise, and away from the ends
+threshold = wavelet_significance(out, x.var(-1), lag1=0.7)
+shown = (out.power > threshold[..., None]) & out.inside_cone
+# the part of the series with periods of 2 to 7 years
+enso = inverse_wavelet_transform(out, band=(24.0, 84.0))
+```
+
+Under JAX only the coefficients are traced: the scales, the mother and the cone are static. A series that is not `periodic` is padded with zeros to twice its length, so nothing wraps, and `inside_cone` says which coefficients do not feel the ends. The mean is at no scale: it is removed first, and the inverse does not give it back.
+
+`wavelet_power_2d` is an isotropic spectrum about each point: its integral over wavenumber is the variance there, and its mean over the plane is an `isotropic_spectrum` smoothed over about a quarter of k.
+
+```python
+# ssh: (…, Ny, Nx); wavelengths of 40 to 400 km on a 5 km grid
+local = wavelet_power_2d(ssh, 5e3, 40e3 * 2.0 ** np.arange(0, 3.4, 0.25))
+power = np.where(local.inside_cone, local.power, np.nan)
+```
+
 ::: diagnostix.spectra
     options:
       show_root_heading: false
