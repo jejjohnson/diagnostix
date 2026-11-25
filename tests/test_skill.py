@@ -6,9 +6,15 @@ import math
 from collections.abc import Callable
 from typing import Any
 
+import gridax
 import numpy as np
 import pytest
-from _backends import assert_backends_agree, assert_refuses_dataarrays, needs_jax
+from _backends import (
+    GRID_KINDS,
+    assert_backends_agree,
+    assert_refuses_dataarrays,
+    needs_jax,
+)
 from _harness import (
     assert_finite_gradient,
     assert_grad_matches_fd,
@@ -20,6 +26,7 @@ from _sampling import assert_mean
 from hypothesis import given, strategies as st
 
 from diagnostix import ValidationError
+from diagnostix.kinematics import geostrophic_residual
 from diagnostix.skill import (
     PSDScore,
     band_rmse,
@@ -27,14 +34,18 @@ from diagnostix.skill import (
     correlation,
     coverage,
     crps,
+    density_inversion_fraction,
     energy_score,
+    geostrophic_imbalance,
     mae,
     nrmse_score,
     psd_score,
+    qg_balance_residual,
     r2_score,
     rank_histogram,
     reliability,
     resolved_scale,
+    rms_divergence,
     rmse,
     spread_skill,
 )
@@ -897,3 +908,303 @@ class TestBandRmse:
             band_rmse(x, x, 1.0, [(0.01, 0.02)])
         with pytest.raises(ValidationError, match="at least 2 samples"):
             band_rmse(x[0], x[0], 1.0, self.BANDS)
+
+
+PLANE = gridax.CartesianAGrid2D.from_coords(
+    y=[0.0, 1.0, 3.0, 4.5, 5.0, 7.0], x=[0.0, 0.5, 1.5, 2.0, 4.0, 4.5, 6.0]
+)
+SPHERE = gridax.SphericalAGrid2D.from_coords(
+    lat=[-70.0, -35.0, -10.0, 15.0, 40.0, 65.0],
+    lon=[0.0, 8.0, 20.0, 30.0, 45.0, 70.0, 80.0],
+    R=2.0,
+)
+GRIDS = {"plane": PLANE, "sphere": SPHERE}
+COLUMN = np.linspace(0.5, 1.5, 6)[:, None]
+
+
+def coast(grid: Any) -> tuple[np.ndarray, Any]:
+    """A wet region with two dry cells, and its gridax mask."""
+    wet = np.ones(grid.shape, dtype=bool)
+    wet[2:4, 2] = False
+    return wet, gridax.Mask2D.from_grid(grid, wet)
+
+
+def balanced(grid: Any, eta: Any) -> tuple[np.ndarray, np.ndarray]:
+    """The velocity in balance with a height, for f = `COLUMN` and g = 2."""
+    slope_x, slope_y = (np.asarray(part) for part in gridax.gradient(eta, grid))
+    return -2.0 * slope_y / COLUMN, 2.0 * slope_x / COLUMN
+
+
+def of_imbalance(grid: Any, **options: Any) -> Callable[..., Any]:
+    def of(u: Any, v: Any, eta: Any) -> Any:
+        return geostrophic_imbalance(u, v, eta, grid, f=COLUMN, gravity=2.0, **options)
+
+    return of
+
+
+@pytest.mark.parametrize("grid", GRIDS.values(), ids=GRIDS)
+class TestGeostrophicImbalance:
+    def test_a_geostrophic_flow(self, grid: Any) -> None:
+        eta = noise(100, *grid.shape)
+        u, v = balanced(grid, eta)
+        assert float(of_imbalance(grid)(u, v, eta)) == pytest.approx(0.0, abs=1e-13)
+        # a flat surface leaves all of Coriolis over
+        assert float(of_imbalance(grid)(u, v, 0.0 * eta)) == pytest.approx(1.0)
+        # and an opposite flow twice the pressure gradient
+        assert float(of_imbalance(grid)(-u, -v, eta)) == pytest.approx(2.0)
+
+    def test_the_scale_cancels(self, grid: Any) -> None:
+        u, v, eta = noise(101, 3, *grid.shape)
+        out = of_imbalance(grid)(u, v, eta)
+        assert of_imbalance(grid)(1e-3 * u, 1e-3 * v, 1e-3 * eta) == pytest.approx(
+            float(out), rel=1e-12
+        )
+
+    def test_the_formula(self, grid: Any) -> None:
+        # with weights of 1, as xrops and somax have it
+        u, v, eta = noise(102, 3, 2, *grid.shape)
+        r_u, r_v = geostrophic_residual(u, v, eta, grid, f=COLUMN, gravity=2.0)
+        area = np.broadcast_to(np.asarray(gridax.area_weights(grid)), grid.shape)
+        for options, w in (({"weights": 1.0}, np.ones(grid.shape)), ({}, area)):
+            out = of_imbalance(grid, **options)(u, v, eta)
+
+            def total(x: Any, w: Any = w) -> Any:
+                return np.sum(w * np.asarray(x) ** 2, axis=(-2, -1))
+
+            left, coriolis = (
+                total(r_u) + total(r_v),
+                total(COLUMN * u) + total(COLUMN * v),
+            )
+            assert_matches_oracle(out, np.sqrt(left / coriolis), rtol=1e-12)
+
+    def test_a_coast(self, grid: Any) -> None:
+        wet, mask = coast(grid)
+        u, v, eta = noise(103, 3, *grid.shape)
+        out = of_imbalance(grid, mask=mask)(u, v, eta)
+        for hole in (np.nan, 1e6):
+            dry = [np.where(wet, a, hole) for a in (u, v, eta)]
+            assert_matches_oracle(of_imbalance(grid, mask=mask)(*dry), out, rtol=1e-12)
+        dry = [np.where(wet, a, np.nan) for a in (u, v, eta)]
+        for which in range(3):
+
+            def of(x: Any, which: int = which) -> Any:
+                args = [x if i == which else a for i, a in enumerate(dry)]
+                return of_imbalance(grid, mask=mask)(*args)
+
+            assert_finite_gradient(of, dry[which])
+        u[0, 0] = np.nan
+        assert np.isnan(of_imbalance(grid, mask=mask)(u, v, eta))
+
+    def test_rest(self, grid: Any) -> None:
+        zero = np.zeros(grid.shape)
+        assert np.isnan(of_imbalance(grid)(zero, zero, noise(104, *grid.shape)))
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self, grid: Any) -> None:
+        def of(u: Any, v: Any, eta: Any, f: Any = COLUMN) -> Any:
+            return geostrophic_imbalance(u, v, eta, grid, f=f, gravity=2.0)
+
+        u, v, eta = noise(105, 3, 2, *grid.shape)
+        assert_backends_agree(of, u, v, eta, COLUMN, kinds=GRID_KINDS)
+        assert_traces(of, u[None], v[None], eta[None], COLUMN[None])
+        assert_refuses_dataarrays(of, u, v, eta, COLUMN)
+        assert_grad_matches_fd(lambda eta: of(u[0], v[0], eta), eta[0])
+        # at a geostrophic flow, whose residual of exactly 0 is that of no flow
+        flat = np.ones(grid.shape)
+        zero = np.zeros(grid.shape)
+        assert_finite_gradient(lambda u: of(u, zero, flat), zero)
+
+
+@pytest.mark.parametrize("grid", GRIDS.values(), ids=GRIDS)
+class TestRmsDivergence:
+    def test_closed_forms(self, grid: Any) -> None:
+        if grid is PLANE:
+            x, y = np.meshgrid(grid.coords("x"), grid.coords("y"))
+            out = rms_divergence(3.0 * x + y, x - 1.0 * y, grid)
+            assert float(out) == pytest.approx(2.0, rel=1e-12)
+            rotation = rms_divergence(-y, x, grid)
+        else:
+            latitude = np.deg2rad([-70.0, -35.0, -10.0, 15.0, 40.0, 65.0])[:, None]
+            u = np.broadcast_to(np.cos(latitude), grid.shape)
+            rotation = rms_divergence(u, 0.0 * u, grid)
+        assert float(rotation) == pytest.approx(0.0, abs=1e-13)
+
+    def test_gridax(self, grid: Any) -> None:
+        u, v = noise(110, 2, 2, *grid.shape)
+        divergence = np.asarray(gridax.divergence(u, v, grid))
+        area = np.broadcast_to(np.asarray(gridax.area_weights(grid)), grid.shape)
+        expected = np.sqrt(np.sum(area * divergence**2, axis=(-2, -1)) / np.sum(area))
+        assert_matches_oracle(rms_divergence(u, v, grid), expected, rtol=1e-12)
+        plain = rms_divergence(u, v, grid, weights=1.0)
+        expected = np.sqrt(np.mean(divergence**2, axis=(-2, -1)))
+        assert_matches_oracle(plain, expected, rtol=1e-12)
+
+    def test_a_coast(self, grid: Any) -> None:
+        wet, mask = coast(grid)
+        u, v = noise(111, 2, *grid.shape)
+        out = rms_divergence(u, v, grid, mask=mask)
+        dry_u, dry_v = (np.where(wet, a, np.nan) for a in (u, v))
+        again = rms_divergence(dry_u, dry_v, grid, mask=mask)
+        assert_matches_oracle(again, out, rtol=1e-12)
+        assert_finite_gradient(
+            lambda u: rms_divergence(u, dry_v, grid, mask=mask), dry_u
+        )
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self, grid: Any) -> None:
+        def of(u: Any, v: Any) -> Any:
+            return rms_divergence(u, v, grid)
+
+        u, v = noise(112, 2, 2, *grid.shape)
+        assert_backends_agree(of, u, v, kinds=GRID_KINDS)
+        assert_traces(of, u[None], v[None])
+        assert_refuses_dataarrays(of, u, v)
+        assert_grad_matches_fd(lambda u: of(u, v[0]), u[0])
+        zero = np.zeros(grid.shape)
+        assert_finite_gradient(lambda u: of(u, zero), zero)
+
+
+class TestGridErrors:
+    def test_grid_errors(self) -> None:
+        wrong = np.ones((3, 3))
+        with pytest.raises(ValidationError, match="ends in"):
+            geostrophic_imbalance(wrong, wrong, wrong, PLANE, f=1.0)
+        with pytest.raises(ValidationError, match="ends in"):
+            rms_divergence(wrong, wrong, PLANE)
+        with pytest.raises(ValidationError, match="'grid' must be"):
+            rms_divergence(wrong, wrong, None)
+
+
+class TestDensityInversionFraction:
+    Z = -np.asarray([0.0, 5.0, 15.0, 30.0, 50.0])
+
+    def test_known_columns(self) -> None:
+        rho = np.asarray(
+            [
+                [1.0, 2.0, 3.0, 4.0, 5.0],
+                [1.0, 2.0, 1.5, 4.0, 5.0],
+                [5.0, 4.0, 3.0, 2.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0],
+            ]
+        )
+        expected = [0.0, 0.25, 1.0, 0.0]
+        out = density_inversion_fraction(rho, self.Z)
+        assert_matches_oracle(out, expected, rtol=0.0)
+        # the other order, another axis, and one column of heights per point
+        out = density_inversion_fraction(rho[:, ::-1], self.Z[::-1])
+        assert_matches_oracle(out, expected, rtol=0.0)
+        out = density_inversion_fraction(rho.T, self.Z, axis=0)
+        assert_matches_oracle(out, expected, rtol=0.0)
+        heights = np.broadcast_to(self.Z, rho.shape)
+        out = density_inversion_fraction(rho.T, heights.T, axis=0)
+        assert_matches_oracle(out, expected, rtol=0.0)
+        # a depth as it is turns them round
+        out = density_inversion_fraction(rho, -self.Z)
+        assert_matches_oracle(out, [1.0, 0.75, 0.0, 0.0], rtol=0.0)
+
+    def test_gaps(self) -> None:
+        rho = np.asarray([[1.0, 2.0, 1.5, 4.0, 5.0], [3.0, 2.0, 9.0, 9.0, 9.0]])
+        valid = np.asarray([[1, 1, 1, 0, 1], [1, 1, 0, 1, 0]], dtype=bool)
+        for hole in (np.nan, 1e9):
+            broken = np.where(valid, rho, hole)
+            out = density_inversion_fraction(broken, self.Z, valid=valid)
+            assert_matches_oracle(out, [0.5, 1.0], rtol=0.0)
+            out = density_inversion_fraction(broken.T, self.Z, axis=0, valid=valid.T)
+            assert_matches_oracle(out, [0.5, 1.0], rtol=0.0)
+        none = density_inversion_fraction(rho, self.Z, valid=np.zeros(5, dtype=bool))
+        assert np.isnan(none).all()
+        rho[0, 1] = np.nan
+        out = density_inversion_fraction(rho, self.Z, valid=valid)
+        assert_matches_oracle(out, [np.nan, 1.0], rtol=0.0)
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self) -> None:
+        def of(rho: Any, z: Any, m: Any) -> Any:
+            return density_inversion_fraction(rho, z, valid=m)
+
+        rho = noise(120, 3, 5)
+        m = np.random.default_rng(121).random((3, 5)) > 0.2
+        assert_backends_agree(of, rho, self.Z, m)
+        assert_traces(of, rho[None], self.Z[None], m[None])
+        assert_refuses_dataarrays(lambda rho, z: of(rho, z, m), rho, self.Z)
+        assert_finite_gradient(lambda rho: of(rho, self.Z, m), rho)
+
+    def test_errors(self) -> None:
+        with pytest.raises(ValidationError, match="differ in levels"):
+            density_inversion_fraction(np.ones(4), self.Z)
+        with pytest.raises(ValueError, match="'valid' must be boolean"):
+            density_inversion_fraction(np.ones(5), self.Z, valid=np.ones(5))
+
+
+C_GRID = gridax.CartesianCGrid2D.from_interior(6, 5, 3.0, 5.0)
+
+
+class TestQgBalanceResidual:
+    def test_its_own_vorticity(self) -> None:
+        psi = noise(130, *C_GRID.shape)
+        options = {"f0": 0.5, "beta": 0.3, "y0": 1.0}
+        q = np.asarray(gridax.qg_potential_vorticity(psi, C_GRID, **options)).copy()
+        assert float(qg_balance_residual(q, psi, C_GRID, **options)) == 0.0
+        # the ghost ring is the caller's, and does not count
+        for edge in (0, -1):
+            q[edge], q[:, edge] = np.nan, np.nan
+        assert float(qg_balance_residual(q, psi, C_GRID, **options)) == 0.0
+        # without β the rest is β (y − y₀) / f₀
+        out = qg_balance_residual(q, psi, C_GRID, f0=0.5)
+        y = np.asarray(C_GRID.coords("y"))[1:-1]
+        rest = np.broadcast_to((0.3 * (y - 1.0) / 0.5)[:, None], (5, 6))
+        expected = np.sqrt(np.mean(rest**2) / np.mean(q[1:-1, 1:-1] ** 2))
+        assert float(out) == pytest.approx(expected, rel=1e-12)
+
+    def test_a_known_error(self) -> None:
+        psi = noise(131, 2, *C_GRID.shape)
+        q = np.asarray(gridax.qg_potential_vorticity(psi, C_GRID, f0=0.5))
+        error = noise(132, 2, *C_GRID.shape)
+        out = qg_balance_residual(q + error, psi, C_GRID, f0=0.5)
+        inner = (..., slice(1, -1), slice(1, -1))
+        mean = [np.mean(a[inner] ** 2, axis=(-2, -1)) for a in (error, q + error)]
+        assert_matches_oracle(out, np.sqrt(mean[0] / mean[1]), rtol=1e-12)
+
+    def test_layers(self) -> None:
+        psi = noise(133, 2, *C_GRID.shape)
+        A = np.asarray([[2.0, -2.0], [-1.0, 1.0]])
+        q = np.asarray(gridax.qg_potential_vorticity(psi, C_GRID, f0=0.5, A=A))
+        out = qg_balance_residual(q, psi, C_GRID, f0=0.5, A=A)
+        assert_matches_oracle(out, [0.0, 0.0], rtol=0.0, atol=1e-14)
+        assert (qg_balance_residual(q, psi, C_GRID, f0=0.5) > 0.01).all()
+
+    def test_a_coast(self) -> None:
+        wet = np.ones(C_GRID.shape, dtype=bool)
+        wet[2:4, 3] = False
+        mask = gridax.Mask2D.from_grid(C_GRID, wet)
+        psi = noise(134, *C_GRID.shape)
+        q = np.asarray(gridax.qg_potential_vorticity(psi, C_GRID, f0=0.5, mask=mask))
+        dry = np.where(wet, q, np.nan)
+        assert float(qg_balance_residual(dry, psi, C_GRID, f0=0.5, mask=mask)) == 0.0
+
+        def of(q: Any) -> Any:
+            return qg_balance_residual(q, psi, C_GRID, f0=0.5, mask=mask)
+
+        assert_finite_gradient(of, dry)
+
+    def test_nothing(self) -> None:
+        zero = np.zeros(C_GRID.shape)
+        assert np.isnan(qg_balance_residual(zero, zero, C_GRID, f0=0.5))
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self) -> None:
+        def of(q: Any, psi: Any) -> Any:
+            return qg_balance_residual(q, psi, C_GRID, f0=0.5, beta=0.3)
+
+        q, psi = noise(135, 2, 2, *C_GRID.shape)
+        assert_backends_agree(of, q, psi, kinds=GRID_KINDS)
+        assert_traces(of, q[None], psi[None])
+        assert_refuses_dataarrays(of, q, psi)
+        assert_grad_matches_fd(lambda psi: of(q[0], psi), psi[0])
+        assert_finite_gradient(lambda psi: of(q[0], psi), psi[0])
+
+    def test_errors(self) -> None:
+        with pytest.raises(ValidationError, match="must be a CartesianCGrid2D"):
+            qg_balance_residual(np.ones((6, 7)), np.ones((6, 7)), PLANE, f0=1.0)
+        with pytest.raises(ValidationError, match="ends in"):
+            qg_balance_residual(np.ones((6, 7)), np.ones((6, 7)), C_GRID, f0=1.0)

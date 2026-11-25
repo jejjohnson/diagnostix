@@ -8,6 +8,12 @@ from diagnostix._src.skill.ensemble import (
     energy_score,
     spread_skill,
 )
+from diagnostix._src.skill.physical import (
+    density_inversion_fraction,
+    geostrophic_imbalance,
+    qg_balance_residual,
+    rms_divergence,
+)
 from diagnostix._src.skill.pointwise import (
     bias,
     correlation,
@@ -39,14 +45,18 @@ __all__ = [
     "correlation",
     "coverage",
     "crps",
+    "density_inversion_fraction",
     "energy_score",
+    "geostrophic_imbalance",
     "mae",
     "nrmse_score",
     "psd_score",
+    "qg_balance_residual",
     "r2_score",
     "rank_histogram",
     "reliability",
     "resolved_scale",
+    "rms_divergence",
     "rmse",
     "spread_skill",
 ]
