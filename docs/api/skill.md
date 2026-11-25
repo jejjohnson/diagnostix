@@ -88,6 +88,21 @@ inversions = density_inversion_fraction(rho, -depth, axis=0, valid=wet)
 
 `geostrophic_imbalance` and `rms_divergence` are means over the wet cells weighted by area, on a collocated grid, and their gradients are 0 at a balanced and at a non-divergent flow. `qg_balance_residual` compares a potential vorticity with that of its own streamfunction, on the Cartesian C-grid of `gridax.qg_potential_vorticity`. A resting state has no imbalance (`NaN`).
 
+## Two methods
+
+Whether one method's errors are smaller by more than chance, with the correlation of the errors of an h-step forecast counted:
+
+```python
+import scipy.stats
+from diagnostix.skill import diebold_mariano
+
+# errors: (method, T), of forecasts of 3 steps
+out = diebold_mariano(errors[0], errors[1], horizon=3)
+p_value = 2 * scipy.stats.t.sf(abs(out.statistic), out.degrees_of_freedom)
+```
+
+The statistic is positive where the first method is worse. SciPy is not a dependency, so the p-value is the caller's line.
+
 ::: diagnostix.skill
     options:
       show_root_heading: false
