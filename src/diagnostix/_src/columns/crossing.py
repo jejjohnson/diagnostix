@@ -6,9 +6,9 @@ from types import ModuleType
 from typing import Any
 
 import numpy as np
+from pipekit_array.functions import table_like
 
 from diagnostix._src.columns.levels import column_inputs
-from diagnostix._src.reduce import on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -93,7 +93,7 @@ def crossing(
         and z⋆, NaN there and meaningless where the column does not reach ℓ.
     """
     n_levels = f.shape[-1]
-    from_start = on_device(xp, np.arange(n_levels) >= start, f)
+    from_start = table_like(np.arange(n_levels) >= start, f, xp)
     # not (f < ℓ), so a NaN stops the search instead of being passed over
     reached = from_start & ~(f < threshold)
     found = xp.any(reached, axis=-1)

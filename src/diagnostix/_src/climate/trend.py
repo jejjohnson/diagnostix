@@ -8,15 +8,11 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
+from pipekit_array.functions import divide_or_nan
+from pipekit_array.records import register_record
 
 from diagnostix._src.climate.window import check_window, window_sum
-from diagnostix._src.records import register_record
-from diagnostix._src.reduce import (
-    divide_or_nan,
-    reduction_inputs,
-    require_axis,
-    used_weights,
-)
+from diagnostix._src.reduce import reduction_inputs, require_axis, used_weights
 from diagnostix._src.times import time_offsets
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
@@ -72,8 +68,8 @@ def linear_trend(
 
     Raises:
         BackendError: If an argument is a DataArray or of another library.
-        ValidationError: If ``time`` is not one time per sample, or ``valid`` is
-            not boolean.
+        ValidationError: If ``time`` is not one time per sample.
+        ValueError: If ``valid`` is not boolean.
 
     Examples:
         >>> import numpy as np
@@ -157,7 +153,8 @@ def running_mean(
     Raises:
         BackendError: If an argument is a DataArray or of another library.
         ValidationError: If ``window`` is not odd and positive, or exceeds the
-            period, ``valid`` is not boolean, or there is no such axis.
+            period, or there is no such axis.
+        ValueError: If ``valid`` is not boolean.
 
     Examples:
         >>> import numpy as np
@@ -177,9 +174,9 @@ def running_mean(
         samples = xp.where(use, samples, xp.zeros_like(samples))
     weight = used_weights(xp, samples, None, use)
     mean = divide_or_nan(
-        xp,
         window_sum(xp, samples, window, periodic=periodic),
         window_sum(xp, weight, window, periodic=periodic),
+        xp,
     )
     return xp.moveaxis(mean, -1, axis)
 
@@ -218,8 +215,8 @@ def _fit(
     kept = samples if use is None else xp.where(use, samples, xp.zeros_like(samples))
     weight = total(used)
     # t̄ = ∑ w t / ∑ w, x̄ = ∑ w x / ∑ w
-    centre = divide_or_nan(xp, total(used * t), weight)
-    intercept = divide_or_nan(xp, total(used * kept), weight)
+    centre = divide_or_nan(total(used * t), weight, xp)
+    intercept = divide_or_nan(total(used * kept), weight, xp)
     defined = _has_two_times(xp, used, t)
     # an undefined line is fitted about 0, so that its gradient is finite
     about = xp.where(defined, centre, xp.zeros_like(centre))
@@ -227,7 +224,7 @@ def _fit(
     # β = ∑ w (t − t̄) x / ∑ w (t − t̄)²
     moment = total(used * offset * kept)
     spread = xp.where(defined, total(used * offset**2), xp.zeros_like(centre))
-    slope = divide_or_nan(xp, moment, spread)
+    slope = divide_or_nan(moment, spread, xp)
     return xp, samples, t, (slope, intercept, centre, origin)
 
 

@@ -7,9 +7,8 @@ from typing import Any
 
 import gridax
 import numpy as np
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import floating_inputs, table_like
 
-from diagnostix._src.reduce import on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -74,5 +73,5 @@ def metric_like(xp: ModuleType, metric: Any, ref: Any) -> Any:
     precision of the field.
     """
     if isinstance(metric, (np.ndarray, np.generic)):
-        metric = on_device(xp, np.asarray(metric), ref)
+        metric = table_like(np.asarray(metric), ref, xp)
     return xp.astype(metric, ref.dtype)

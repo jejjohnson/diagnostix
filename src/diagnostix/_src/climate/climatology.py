@@ -8,13 +8,12 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float, Int
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import divide_or_nan, floating_inputs, table_like
+from pipekit_array.records import register_record
+from pipekit_array.weighted import NO_GROUP, Groups
 
 from diagnostix._src.climate.calendar import checked_slots
 from diagnostix._src.climate.window import check_window, window_sum
-from diagnostix._src.groups import NO_GROUP, Groups
-from diagnostix._src.records import register_record
-from diagnostix._src.reduce import divide_or_nan, on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -77,8 +76,10 @@ def climatology(
 
     Raises:
         BackendError: If ``x`` or ``valid`` is a DataArray or of another library.
-        ValidationError: If a slot is not in 1 … ``n_slots``, ``axis`` does not
-            hold one sample per slot, or ``valid`` or ``base`` is not boolean.
+        ValidationError: If a slot is not in 1 … ``n_slots``, or ``base`` is not
+            boolean.
+        ValueError: If ``axis`` does not hold one sample per slot, or ``valid`` is
+            not boolean.
 
     Examples:
         >>> import numpy as np
@@ -208,9 +209,9 @@ def smooth_climatology(
     # an empty slot is NaN, and its weight is 0
     total = xp.where(count > 0, weights * mean, xp.zeros_like(mean))
     smooth = divide_or_nan(
-        xp,
         window_sum(xp, total, window, periodic=True),
         window_sum(xp, weights, window, periodic=True),
+        xp,
     )
     return Climatology(
         mean=xp.moveaxis(smooth, -1, axis),
@@ -262,7 +263,7 @@ def _fit_shared(xp: ModuleType, total: Any, basis: np.ndarray, count: Any) -> An
     normal = basis.T @ (count[:, None] * basis)
     # a = A⁻¹ Bᵀ s from the sums s, as s (B A⁻¹), because A is symmetric
     solve = np.linalg.solve(normal, basis.T).T
-    tables = (on_device(xp, table, total) for table in (solve, basis.T))
+    tables = (table_like(table, total, xp) for table in (solve, basis.T))
     to_terms, to_slots = (xp.astype(table, total.dtype) for table in tables)
     return xp.matmul(xp.matmul(total, to_terms), to_slots)
 
@@ -270,10 +271,10 @@ def _fit_shared(xp: ModuleType, total: Any, basis: np.ndarray, count: Any) -> An
 def _fit_each(xp: ModuleType, total: Any, basis: np.ndarray, count: Any) -> Any:
     """The fit where the counts differ: one set of normal equations per point."""
     n_terms = basis.shape[-1]
-    table = xp.astype(on_device(xp, basis, total), total.dtype)
+    table = xp.astype(table_like(basis, total, xp), total.dtype)
     outer = basis[:, :, None] * basis[:, None, :]
     outer = outer.reshape(basis.shape[0], -1)
-    outer = xp.astype(on_device(xp, outer, total), total.dtype)
+    outer = xp.astype(table_like(outer, total, xp), total.dtype)
     # Bᵀ N B / ∑ n, so that its entries are of order 1
     samples = xp.sum(count, axis=-1, keepdims=True, dtype=count.dtype)
     scale = xp.where(samples > 0, samples, xp.ones_like(samples))
@@ -283,7 +284,7 @@ def _fit_each(xp: ModuleType, total: Any, basis: np.ndarray, count: Any) -> Any:
     # trigonometric polynomials of 2K + 1 terms are independent on 2K + 1 slots
     sampled = xp.sum(xp.astype(count > 0, xp.int32), axis=-1, dtype=xp.int32)
     enough = sampled >= n_terms
-    identity = xp.astype(on_device(xp, np.eye(n_terms), total), total.dtype)
+    identity = xp.astype(table_like(np.eye(n_terms), total, xp), total.dtype)
     safe = xp.where(enough[..., None, None], normal, identity)
     coefficients = xp.linalg.solve(safe, sums[..., None])[..., 0]
     fit = xp.matmul(coefficients, xp.matrix_transpose(table))

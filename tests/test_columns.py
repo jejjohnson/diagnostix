@@ -321,7 +321,7 @@ class TestMixedLayerDepth:
 
     def test_valid_is_boolean(self) -> None:
         valid: Any = np.ones(DEPTH.size)
-        with pytest.raises(ValidationError, match="'valid' must be boolean"):
+        with pytest.raises(ValueError, match="'valid' must be boolean"):
             mixed_layer_depth(DEPTH, DEPTH, valid=valid)
 
 

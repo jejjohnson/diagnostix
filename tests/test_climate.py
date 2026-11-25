@@ -217,7 +217,7 @@ class TestClimatology:
             climatology(np.ones(1), [1], n_slots=0)
 
     def test_another_number_of_samples(self) -> None:
-        with pytest.raises(ValidationError, match="must hold the 2 samples"):
+        with pytest.raises(ValueError, match="must hold the 2 samples"):
             climatology(np.ones(3), [1, 2], n_slots=2)
 
 
@@ -564,7 +564,7 @@ class TestAnomaly:
 
     def test_samples_and_slots_that_differ(self) -> None:
         cycle_ = climatology([1.0, 2.0], [1, 2], n_slots=2)
-        with pytest.raises(ValidationError, match="must hold the 2 samples"):
+        with pytest.raises(ValueError, match="must hold the 2 samples"):
             anomaly(np.ones(3), cycle_, [1, 2])
         with pytest.raises(ValidationError, match="'slot' must be in 1 to 2, got 3"):
             add_climatology(np.ones(2), cycle_, [1, 3])

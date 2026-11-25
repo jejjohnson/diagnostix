@@ -5,11 +5,10 @@ from __future__ import annotations
 from types import ModuleType
 from typing import Any
 
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import floating_inputs, table_like
 
 from diagnostix._src.climate.calendar import checked_slots
 from diagnostix._src.climate.climatology import Climatology, check_slots_axis
-from diagnostix._src.reduce import on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -95,5 +94,5 @@ def _at_samples(
     if not inside or samples.shape[axis] != slots.size:
         msg = f"axis {axis} of shape {samples.shape} must hold the {slots.size} samples"
         raise ValidationError(msg)
-    lookup = on_device(xp, slots - 1, mean)
+    lookup = table_like(slots - 1, mean, xp)
     return xp, samples, xp.take(mean, lookup, axis=axis)

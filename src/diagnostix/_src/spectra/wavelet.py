@@ -10,8 +10,8 @@ from typing import Any
 import numpy as np
 from jaxtyping import Bool, Complex, Float
 from pipekit_array.functions import floating_inputs, namespace_of
+from pipekit_array.records import register_record
 
-from diagnostix._src.records import register_record
 from diagnostix._src.reduce import constants_like, require_axis
 from diagnostix._src.spectra.mothers import Mother
 from diagnostix._src.spectra.taper import (

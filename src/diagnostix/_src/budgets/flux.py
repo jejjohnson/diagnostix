@@ -6,6 +6,7 @@ from types import ModuleType
 from typing import Any
 
 import gridax
+from pipekit_array.functions import table_like
 
 from diagnostix._src.budgets.faces import (
     across,
@@ -15,7 +16,6 @@ from diagnostix._src.budgets.faces import (
 )
 from diagnostix._src.budgets.volume import ControlVolume
 from diagnostix._src.grids import grid_inputs, metric_like
-from diagnostix._src.reduce import on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -198,7 +198,7 @@ def _fluxes(
 
 def _signed_sum(xp: ModuleType, faces: Any, signs: Any) -> Any:
     """∑ σ F over the faces of the boundary; the others are not read."""
-    on_boundary = on_device(xp, signs != 0, faces)
-    sign = xp.astype(on_device(xp, signs, faces), faces.dtype)
+    on_boundary = table_like(signs != 0, faces, xp)
+    sign = xp.astype(table_like(signs, faces, xp), faces.dtype)
     kept = xp.where(on_boundary, faces, xp.zeros_like(faces))
     return xp.sum(sign * kept, axis=(-2, -1), dtype=faces.dtype)

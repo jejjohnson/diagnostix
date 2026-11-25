@@ -6,10 +6,10 @@ from types import ModuleType
 from typing import Any, Literal
 
 import numpy as np
+from pipekit_array.functions import boolean_like, table_like
 
 from diagnostix._src.columns.crossing import crossing
 from diagnostix._src.columns.levels import column_inputs
-from diagnostix._src.reduce import boolean_like, on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -54,8 +54,8 @@ def mixed_layer_depth(
     Raises:
         BackendError: If an argument is a DataArray or of another library.
         ValidationError: If there are fewer than two levels, ``depth`` does not
-            have those of ``density``, ``valid`` is not boolean, or
-            ``unreached`` is not one of the two.
+            have those of ``density``, or ``unreached`` is not one of the two.
+        ValueError: If ``valid`` is not boolean.
 
     References:
         de Boyer Montégut et al. (2004), doi:10.1029/2004JC002378.
@@ -111,7 +111,7 @@ def mixed_layer_depth(
 
 def _levels_of(xp: ModuleType, valid: ArrayLike, rho: Any, axis: int) -> Any:
     """``valid`` with its levels last, broadcast against the density."""
-    usable = boolean_like(xp, valid, rho)
+    usable = boolean_like(valid, rho, xp)
     if usable.ndim > 1:
         usable = xp.moveaxis(usable, axis, -1)
     return xp.broadcast_to(usable, rho.shape)
@@ -131,7 +131,7 @@ def _valid_first(xp: ModuleType, rho: Any, z: Any, usable: Any) -> tuple[Any, An
     # the valid levels come first, in their order
     order = xp.argsort(xp.astype(~usable, xp.int32), axis=-1, stable=True)
     n_valid = xp.sum(xp.astype(usable, order.dtype), axis=-1, keepdims=True)
-    levels = on_device(xp, np.arange(rho.shape[-1]), rho)
+    levels = table_like(np.arange(rho.shape[-1]), rho, xp)
     levels = xp.broadcast_to(xp.astype(levels, order.dtype), order.shape)
     last = xp.maximum(n_valid - 1, xp.zeros_like(n_valid))
     chosen = xp.take_along_axis(order, xp.minimum(levels, last), axis=-1)
