@@ -12,7 +12,7 @@ The public API is the set of public modules below, plus the exceptions that `dia
 | [`diagnostix.climate`](climate.md) | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | available |
 | [`diagnostix.spectra`](spectra.md) | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | available |
 | [`diagnostix.eofs`](eofs.md) | Area-weighted EOFs, projection and reconstruction | available |
-| [`diagnostix.skill`](skill.md) | Pointwise scores; ensemble, spectral and physical ones in Wave 4 | available |
+| [`diagnostix.skill`](skill.md) | Pointwise and ensemble scores; spectral and physical ones in Wave 4 | available |
 | [Type aliases](typing.md) | `ArrayLike` | available |
 | [Exceptions](exceptions.md) | `DiagnostixError`, `BackendError`, `ValidationError` | available |
 
