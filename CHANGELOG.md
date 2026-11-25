@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.7](https://github.com/jejjohnson/diagnostix/compare/v0.0.6...v0.0.7) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** pipekit-array 0.2.0 and its areas ([#72](https://github.com/jejjohnson/diagnostix/issues/72)) ([6100259](https://github.com/jejjohnson/diagnostix/commit/61002590c9b75b6294b6fb167f2fd2e6141d8ae7))
+
 ## [0.0.6](https://github.com/jejjohnson/diagnostix/compare/v0.0.5...v0.0.6) (2026-11-25)
 
 
