@@ -23,7 +23,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `climate` | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | now |
 | `spectra` | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | now |
 | `eofs` | Area-weighted EOFs, projection and reconstruction | now |
-| `skill` | Pointwise and ensemble scores; spectral and physical ones in Wave 4 | now |
+| `skill` | Pointwise, ensemble and spectral scores; physical ones in Wave 4 | now |
 
 ### Boundaries
 

@@ -49,6 +49,25 @@ counts = rank_histogram(ensemble, reference, valid=ocean)  # flat
 
 Counts are piecewise constant, so the gradients of ranks and coverage are 0.
 
+## By scale
+
+`psd_score` is 1 minus the power of the error over that of the reference: 1 where a scale is right, 0 where the error is as large as the signal. `resolved_scale` is the wavelength where it first falls to one half.
+
+```python
+from diagnostix.skill import band_rmse, psd_score, resolved_scale
+
+# ssh maps: (T, Ny, Nx) on a 10 km grid; spectra averaged over time first
+score = psd_score(maps, truth, 10e3, average=0)
+wavelength = resolved_scale(score)  # m
+# a section in (T, X): the spectrum along x
+score = psd_score(section, truth_section, 10e3, isotropic=False, average=0)
+# the error at scales above 200 km, from 200 to 50 km, and below
+bands = [(0, 1 / 200e3), (1 / 200e3, 1 / 50e3), (1 / 50e3, np.inf)]
+by_band = band_rmse(maps, truth, 10e3, bands)
+```
+
+The resolved wavelength is interpolated in log k, and is `NaN` where the score never falls to the level. The squares of `band_rmse` over bands that cover every wavenumber add up to the mean square error; it filters a periodic box and tapers nothing.
+
 ::: diagnostix.skill
     options:
       show_root_heading: false
