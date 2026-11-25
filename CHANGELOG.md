@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.6](https://github.com/jejjohnson/diagnostix/compare/v0.0.5...v0.0.6) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** pipekit-array 0.1.6, gridax 0.3.2 and geophysix 0.0.8, without overrides ([#69](https://github.com/jejjohnson/diagnostix/issues/69)) ([74ec1bb](https://github.com/jejjohnson/diagnostix/commit/74ec1bb6be5f55d5c70facae83436ccd0f935b23))
+
 ## [0.0.5](https://github.com/jejjohnson/diagnostix/compare/v0.0.4...v0.0.5) (2026-11-25)
 
 
