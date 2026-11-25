@@ -16,6 +16,7 @@ from diagnostix._src.spectra.rings import Rings
 from diagnostix._src.spectra.taper import (
     Detrend,
     Window,
+    as_complex,
     checked_spacing,
     one_sided,
     squared_magnitude,
@@ -176,9 +177,8 @@ def power_spectrum_2d(
     xp, (x,) = floating_inputs(x)
     x, mean_square = tapered(xp, x, 2, window, detrend)
     shape = tuple(x.shape[-2:])
-    # fftn of the standard takes complex input
-    z = xp.astype(x, xp.complex64 if x.dtype == xp.float32 else xp.complex128)
-    z = xp.fft.fftshift(xp.fft.fftn(z, axes=(-2, -1)), axes=(-2, -1))
+    z = xp.fft.fftn(as_complex(xp, x), axes=(-2, -1))
+    z = xp.fft.fftshift(z, axes=(-2, -1))
     # P₂ = (Δx Δy / (Nx Ny U)) |x̂|²
     scale = steps[0] * steps[1] / (shape[0] * shape[1] * mean_square)
     wavenumbers = (

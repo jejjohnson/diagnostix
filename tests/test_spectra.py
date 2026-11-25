@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -27,12 +28,16 @@ from diagnostix.spectra import (
     cross_spectrum,
     enstrophy_flux,
     integral_scale,
+    inverse_wavelet_transform,
     isotropic_spectrum,
     kinetic_energy_flux,
     power_spectrum,
     power_spectrum_2d,
     rotary_spectrum,
     spectral_slope,
+    wavelet_power_2d,
+    wavelet_significance,
+    wavelet_transform,
 )
 
 
@@ -957,3 +962,431 @@ class TestIntegralScale:
         assert_traces(of, k[None], power[None])
         assert_refuses_dataarrays(of, k, power)
         assert_grad_matches_fd(lambda power: of(k, power), power)
+
+
+MOTHERS = {
+    "morlet": ("morlet", 6.0),
+    "morlet 8": ("morlet", 8.0),
+    "paul": ("paul", 4.0),
+    "paul 2": ("paul", 2.0),
+    "hat": ("dog", 2.0),
+    "dog 1": ("dog", 1.0),
+    "dog 6": ("dog", 6.0),
+}
+
+
+def mother_in_space(name: str, param: float, eta: np.ndarray) -> np.ndarray:
+    """ψ₀(η) of Torrence and Compo's Table 1, without the iᵐ of a Paul."""
+    if name == "morlet":
+        return np.pi**-0.25 * np.exp(1j * param * eta - 0.5 * eta**2)
+    m = int(param)
+    if name == "paul":
+        norm = 2.0**m * math.factorial(m)
+        norm /= np.sqrt(np.pi * math.factorial(2 * m))
+        return norm * (1.0 - 1j * eta) ** -(m + 1.0)
+    # (−1)^(m+1) dᵐ/dηᵐ exp(−η²/2) = −Heₘ(η) exp(−η²/2)
+    hermite = np.polynomial.hermite_e.hermeval(eta, [0.0] * m + [1.0])
+    return -hermite * np.exp(-0.5 * eta**2) / np.sqrt(math.gamma(m + 0.5)) + 0j
+
+
+def octaves(shortest: float, longest: float, voices: int = 8) -> np.ndarray:
+    count = int(np.floor(voices * np.log2(longest / shortest))) + 1
+    return shortest * 2.0 ** (np.arange(count) / voices)
+
+
+@pytest.mark.parametrize(("name", "param"), MOTHERS.values(), ids=MOTHERS)
+class TestMothers:
+    def test_the_definition_in_space(self, name: str, param: float) -> None:
+        # W(s, n) = ∑ xₘ (Δt/s)^½ ψ₀((m − n) Δt/s)*
+        n, step = 512, 0.5
+        x = noise(80, n)
+        scales = step * np.asarray([12.0, 16.0, 20.0])
+        out = wavelet_transform(x, step, scales, mother=name, param=param, detrend=None)
+        lag = step * (np.arange(n)[None, :] - np.arange(n)[:, None])
+        # well below the Nyquist frequency, where a wavelet is cut, and above the
+        # lags at which a Paul of order m, which falls as (s/Δ)^(m+1), would wrap
+        atol = 5e-3 if name == "paul" and param < 4.0 else 2e-6
+        for s, got in zip(scales, out.coefficients, strict=True):
+            psi = mother_in_space(name, param, lag / s)
+            expected = np.sqrt(step / s) * np.conj(psi) @ x
+            for part in (np.real, np.imag):
+                assert_matches_oracle(part(got), part(expected), rtol=0, atol=atol)
+
+    def test_a_periodic_wave(self, name: str, param: float) -> None:
+        n, step, cycles = 60, 0.25, 5
+        omega = 2.0 * np.pi * cycles / (n * step)
+        x = np.cos(omega * step * np.arange(n))
+        scales = np.asarray([0.3, 0.7, 2.0])
+        out = wavelet_transform(
+            x, step, scales, mother=name, param=param, periodic=True
+        )
+        # ψ̂₀ as the integral of ψ₀ exp(−iωη) / √(2π)
+        eta = np.linspace(-400.0, 400.0, 800001)
+        for s, got in zip(scales, out.coefficients, strict=True):
+            psi = mother_in_space(name, param, eta)
+            wave = np.exp(-1j * s * omega * eta)
+            hat = np.trapezoid(psi * wave, eta) / np.sqrt(2.0 * np.pi)
+            turn = np.exp(1j * omega * step * np.arange(n))
+            expected = 0.5 * np.conj(hat) * turn
+            if name == "dog":
+                # a real wavelet sees both halves of a cosine
+                expected = expected + np.conj(expected)
+            expected = expected * np.sqrt(2.0 * np.pi * s / step)
+            # a truncated Paul integral, and a Morlet's 1e-8 at ω < 0
+            for part in (np.real, np.imag):
+                assert_matches_oracle(part(got), part(expected), rtol=0.0, atol=2e-5)
+
+    def test_white_noise_has_its_variance(self, name: str, param: float) -> None:
+        x = 1.5 * noise(81, 400, 64)
+        out = wavelet_transform(
+            x, 2.0, [8.0], mother=name, param=param, detrend=None, periodic=True
+        )
+        # the middle of each series: neighbours share draws. An energy of 1, and
+        # the aliasing of a discrete spectrum: below 2 % at four samples
+        power = out.power[:, 0, 32]
+        assert np.mean(power) == pytest.approx(1.5**2, rel=0.25)
+        assert_mean(power, 1.5**2)
+
+    def test_the_inverse(self, name: str, param: float) -> None:
+        step = 0.25
+        t = step * np.arange(400)
+        x = np.sin(2.0 * np.pi * t / 8.0) * np.exp(-(((t - 45.0) / 15.0) ** 2))
+        x = x - x.mean()
+        scales = octaves(step / 8.0, 100.0)
+        out = wavelet_transform(x, step, scales, mother=name, param=param)
+        if name == "dog" and param == 1.0:
+            with pytest.raises(ValidationError, match="has no inverse"):
+                inverse_wavelet_transform(out)
+            return
+        back = inverse_wavelet_transform(out)
+        # an envelope of one scale: no power beyond these, but for a mean that
+        # zero padding makes
+        assert_matches_oracle(back, x, rtol=0.0, atol=2e-3)
+
+    def test_the_period_is_where_a_wave_peaks(self, name: str, param: float) -> None:
+        step, period = 0.25, 10.0
+        n = 400
+        x = np.cos(2.0 * np.pi * step * np.arange(n) / period)
+        scales = octaves(0.5, 40.0, voices=64)
+        out = wavelet_transform(
+            x, step, scales, mother=name, param=param, periodic=True
+        )
+        peak = out.period[np.argmax(np.mean(out.power, axis=-1))]
+        assert peak == pytest.approx(period, rel=0.015)
+
+
+class TestWaveletTransform:
+    def test_the_published_constants(self) -> None:
+        # Table 2 gives C_δ and ψ₀(0) to three digits
+        from diagnostix._src.spectra.mothers import Mother
+
+        for name, published in (
+            ("morlet", 0.776 * np.pi**-0.25),
+            ("paul", 1.132 * 1.079),
+            ("dog", 3.541 * 0.867),
+        ):
+            constant = Mother.of(name, None).inverse_constant()
+            # the hat's is 2 % off: it was summed over the scales of a real series
+            assert constant == pytest.approx(published, rel=0.03)
+        for m, published in ((4.0, 1.132 * 1.079), (6.0, 0.776 * np.pi**-0.25)):
+            name = "paul" if m == 4.0 else "morlet"
+            constant = Mother.of(name, m).inverse_constant()
+            assert constant == pytest.approx(published, rel=4e-3)
+
+    def test_padding_keeps_the_ends_apart(self) -> None:
+        # an event at the end is not felt at the start
+        x = np.zeros(64)
+        x[-3] = 1.0
+        scales = [4.0, 6.0]
+        padded = wavelet_transform(x, 1.0, scales, detrend=None)
+        wrapped = wavelet_transform(x, 1.0, scales, detrend=None, periodic=True)
+        assert np.max(padded.power[:, :3]) < 1e-12
+        assert np.max(wrapped.power[:, :3]) > 1e-3
+
+    def test_the_cone(self) -> None:
+        scales = [1.0, 2.0, 100.0]
+        x = noise(82, 20)
+        for name, reach in (("morlet", 2.0**0.5), ("paul", 0.5**0.5)):
+            out = wavelet_transform(x, 0.5, scales, mother=name)
+            position = 0.5 * np.arange(20)
+            distance = np.minimum(position, 9.5 - position)
+            expected = distance >= reach * np.asarray(scales)[:, None]
+            assert_matches_oracle(out.inside_cone, expected, rtol=0.0)
+            assert not out.inside_cone[-1].any()
+        out = wavelet_transform(x, 0.5, scales, periodic=True)
+        assert out.inside_cone.all()
+
+    @pytest.mark.parametrize("name", ["morlet", "paul", "hat"])
+    def test_a_spike_at_an_end_has_fallen_by_e2_at_the_cone(self, name: str) -> None:
+        mother = MOTHERS[name][0]
+        spike = np.zeros(2048)
+        spike[0] = 1.0
+        out = wavelet_transform(spike, 1.0, [80.0], mother=mother, detrend=None)
+        first = int(np.argmax(out.inside_cone[0]))
+        ratio = out.power[0, first] / out.power[0, 0]
+        # 1.5⁻⁵ for a Paul of order 4; the next sample is up to 1/80 of s away
+        expected = 1.5**-5 if name == "paul" else np.exp(-2.0)
+        assert ratio == pytest.approx(expected, rel=0.05)
+
+    def test_axis_and_batch(self) -> None:
+        x = noise(83, 2, 24, 3)
+        out = wavelet_transform(x, 1.0, [2.0, 4.0], axis=1)
+        one = wavelet_transform(x[1, :, 2], 1.0, [2.0, 4.0])
+        assert out.coefficients.shape == (2, 3, 2, 24)
+        assert_matches_oracle(out.power[1, 2], one.power, rtol=1e-12)
+
+    def test_what_is_removed(self) -> None:
+        x, line = noise(84, 40), 5.0 + 0.5 * np.arange(40)
+        scales = [2.0, 5.0]
+        plain = wavelet_transform(x, 1.0, scales, detrend="linear").power
+        with_line = wavelet_transform(x + line, 1.0, scales, detrend="linear").power
+        assert_matches_oracle(with_line, plain, rtol=0.0, atol=1e-11)
+        same = wavelet_transform(x - x.mean(), 1.0, scales, detrend=None).power
+        assert_matches_oracle(
+            wavelet_transform(x, 1.0, scales).power, same, rtol=0.0, atol=1e-12
+        )
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize("name", ["morlet", "hat", "dog 1"])
+    @pytest.mark.parametrize("periodic", [True, False])
+    def test_backends_and_precision(self, name: str, periodic: bool) -> None:
+        mother, param = MOTHERS[name]
+
+        def of(x: Any) -> Any:
+            out = wavelet_transform(
+                x, 0.5, [1.0, 2.5], mother=mother, param=param, periodic=periodic
+            )
+            return *two_parts(out.coefficients), out.power + 1.0
+
+        x = noise(85, 2, 12)
+        assert_backends_agree(of, x)
+        assert_traces(of, x[None])
+        assert_refuses_dataarrays(of, x)
+        assert_grad_matches_fd(lambda x: of(x)[2], x[0])
+
+    @needs_jax
+    def test_only_the_coefficients_are_traced(self) -> None:
+        import jax
+
+        out = wavelet_transform(noise(86, 16), 1.0, [2.0, 4.0])
+        leaves, tree = jax.tree.flatten(out)
+        assert len(leaves) == 1
+        again = jax.tree.unflatten(tree, leaves)
+        assert again.scales == (2.0, 4.0)
+        # a transform goes into a compiled function, its scales static
+        traced = jax.jit(inverse_wavelet_transform)(out)
+        assert_matches_oracle(traced, inverse_wavelet_transform(out), rtol=1e-11)
+
+    def test_errors(self) -> None:
+        x = noise(87, 16)
+        for scales in ([0.0, 1.0], [2.0, 1.0], [1.0, 1.0]):
+            with pytest.raises(ValidationError, match="positive and ascending"):
+                wavelet_transform(x, 1.0, scales)
+        for scales in ([], [[1.0]], [np.nan], 2.0):
+            with pytest.raises(ValidationError, match="1-D and finite"):
+                wavelet_transform(x, 1.0, scales)
+        with pytest.raises(ValidationError, match="'mother' must be one of"):
+            wavelet_transform(x, 1.0, [2.0], mother="haar")
+        for mother, param in (("paul", 2.5), ("dog", 0.0), ("morlet", np.inf)):
+            with pytest.raises(ValidationError, match="'param' of"):
+                wavelet_transform(x, 1.0, [2.0], mother=mother, param=param)
+        with pytest.raises(ValidationError, match="spacing"):
+            wavelet_transform(x, 0.0, [2.0])
+        with pytest.raises(ValidationError, match="no axis"):
+            wavelet_transform(x, 1.0, [2.0], axis=1)
+        with pytest.raises(ValidationError, match="at least 2 samples"):
+            wavelet_transform(x[:1], 1.0, [2.0])
+
+
+class TestInverse:
+    def test_a_band_of_two_waves(self) -> None:
+        t = 0.5 * np.arange(256)
+        slow, fast = np.cos(2.0 * np.pi * t / 32.0), np.cos(2.0 * np.pi * t / 4.0)
+        scales = octaves(0.1, 120.0)
+        out = wavelet_transform(slow + fast, 0.5, scales, periodic=True)
+        kept = inverse_wavelet_transform(out, band=(12.0, 1e9))
+        # the tail of each wave in the other's band: exp(−½ (6 − 2.25)²)
+        assert_matches_oracle(kept, slow, rtol=0.0, atol=1e-3)
+        kept = inverse_wavelet_transform(out, band=(0.0, 12.0))
+        assert_matches_oracle(kept, fast, rtol=0.0, atol=1e-3)
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self) -> None:
+        def of(x: Any) -> Any:
+            out = wavelet_transform(x, 0.5, [1.0, 2.0, 4.0])
+            return 9.0 + inverse_wavelet_transform(out)
+
+        x = noise(88, 2, 12)
+        assert_backends_agree(of, x)
+        assert_traces(of, x[None])
+        assert_grad_matches_fd(of, x[0])
+
+    def test_errors(self) -> None:
+        x = noise(89, 16)
+        for scales in ([2.0], [1.0, 2.0, 3.0]):
+            out = wavelet_transform(x, 1.0, scales)
+            with pytest.raises(ValidationError, match="geometric sequence"):
+                inverse_wavelet_transform(out)
+        out = wavelet_transform(x, 1.0, [2.0, 4.0], param=3.0)
+        with pytest.raises(ValidationError, match="has no inverse"):
+            inverse_wavelet_transform(out)
+
+
+class TestWaveletSignificance:
+    @pytest.mark.parametrize("name", ["morlet", "paul", "hat"])
+    @pytest.mark.parametrize("confidence", [0.8, 0.95])
+    def test_white_noise_passes_as_often_as_it_should(
+        self, name: str, confidence: float
+    ) -> None:
+        mother, param = MOTHERS[name]
+        x = noise(90, 4000, 64)
+        out = wavelet_transform(
+            x, 1.0, [4.0], mother=mother, param=param, detrend=None, periodic=True
+        )
+        threshold = wavelet_significance(out, 1.0, confidence=confidence)
+        # one coefficient of each series, so that the draws are independent
+        above = out.power[:, 0, 10] > threshold[0]
+        assert_mean(above, 1.0 - confidence)
+
+    @pytest.mark.parametrize("alpha", [0.7, -0.4])
+    def test_red_noise_too(self, alpha: float) -> None:
+        n, count = 128, 4000
+        drive = noise(91, count, n + 50)
+        x = np.zeros_like(drive)
+        for i in range(1, n + 50):
+            x[:, i] = alpha * x[:, i - 1] + drive[:, i]
+        x = x[:, 50:]
+        variance = 1.0 / (1.0 - alpha**2)
+        out = wavelet_transform(x, 1.0, [8.0], detrend=None)
+        threshold = wavelet_significance(out, variance, lag1=alpha)
+        # a wavelet is broad, so its mean background is near that at its period
+        share = np.mean(out.power[:, 0, 64] > threshold[0])
+        assert share == pytest.approx(0.05, abs=0.02)
+
+    def test_the_formula(self) -> None:
+        stats = pytest.importorskip("scipy.stats")
+        x = noise(92, 2, 32)
+        scales = [2.0, 4.0, 8.0]
+        for mother, degrees in (("morlet", 2), ("dog", 1)):
+            out = wavelet_transform(x, 0.5, scales, mother=mother)
+            variance, lag1 = np.asarray([1.0, 4.0]), np.asarray([0.3, 0.6])
+            got = wavelet_significance(out, variance, lag1=lag1, confidence=0.9)
+            angle = 2.0 * np.pi * 0.5 / out.period
+            a = lag1[:, None]
+            red = (1.0 - a**2) / (1.0 + a**2 - 2.0 * a * np.cos(angle))
+            quantile = stats.chi2.ppf(0.9, degrees) / degrees
+            assert_matches_oracle(got, variance[:, None] * red * quantile, rtol=1e-10)
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self) -> None:
+        def of(x: Any, variance: Any, lag1: Any) -> Any:
+            out = wavelet_transform(x, 0.5, [1.0, 2.5])
+            return wavelet_significance(out, variance, lag1=lag1)
+
+        x, variance, lag1 = noise(93, 2, 12), np.ones(2), np.asarray([0.2, 0.5])
+        assert_backends_agree(of, x, variance, lag1)
+        assert_traces(of, x[None], variance[None], lag1[None])
+        assert_refuses_dataarrays(of, x, variance, lag1)
+        assert_grad_matches_fd(lambda lag1: of(x, variance, lag1), lag1)
+        # numbers take the precision of the transform
+        out = wavelet_transform(x.astype(np.float32), 0.5, [1.0])
+        assert wavelet_significance(out, 1.0).dtype == np.float32
+
+    def test_errors(self) -> None:
+        out = wavelet_transform(noise(94, 8), 1.0, [2.0])
+        for confidence in (0.0, 1.0, 95.0):
+            with pytest.raises(ValidationError, match="'confidence'"):
+                wavelet_significance(out, 1.0, confidence=confidence)
+
+
+class TestWaveletPower2D:
+    SCALES = octaves(2.2, 30.0)
+
+    def area(self, power: Any, wavenumber: Any) -> Any:
+        return -np.trapezoid(power, wavenumber, axis=0)
+
+    @pytest.mark.parametrize("mode", [(8, 0), (0, 8), (5, 6), (-6, 5), (7, -4)])
+    def test_a_wave_has_its_variance_everywhere(self, mode: Any) -> None:
+        y, x = np.mgrid[:48, :48]
+        wave = 2.0 * np.cos(2.0 * np.pi * (mode[0] * y + mode[1] * x) / 48.0)
+        out = wavelet_power_2d(wave, 1.0, self.SCALES, periodic=True)
+        area = self.area(out.power, out.wavenumber)
+        # the trapezoid rule over eight voices
+        assert_matches_oracle(area, np.full((48, 48), 2.0), rtol=0.02)
+        # the same whatever its direction, but for the length of the wave
+        peak = out.wavenumber[np.argmax(out.power[:, 0, 0])]
+        assert peak == pytest.approx(np.hypot(*mode) / 48.0, rel=0.08)
+
+    def test_isotropy(self) -> None:
+        # three waves of |k| = 5 Δk: (5, 0), (3, 4) and (−4, 3)
+        y, x = np.mgrid[:40, :40]
+        powers = []
+        for j, i in ((5, 0), (3, 4), (-4, 3)):
+            wave = np.cos(2.0 * np.pi * (j * y + i * x) / 40.0)
+            out = wavelet_power_2d(wave, 0.5, [3.0, 4.0, 5.0], periodic=True)
+            powers.append(np.mean(out.power, axis=(-2, -1)))
+        assert_matches_oracle(powers[1], powers[0], rtol=1e-5)
+        assert_matches_oracle(powers[2], powers[0], rtol=1e-5)
+
+    def test_white_noise_is_the_isotropic_spectrum(self) -> None:
+        # a white field's isotropic density is 2π k σ² Δx Δy, and its smoothed one
+        # within the wavelet's width of it: k is raised by 1/(8π²) of itself
+        x = noise(95, 40, 32, 32)
+        scales = [3.0, 4.0, 6.0]
+        out = wavelet_power_2d(x, 1.0, scales, periodic=True, detrend=None)
+        mean = np.mean(out.power, axis=(-2, -1))
+        for k, density in zip(out.wavenumber, mean.T, strict=True):
+            assert np.mean(density) == pytest.approx(2.0 * np.pi * k, rel=0.06)
+
+    def test_a_patch_is_found_where_it_is(self) -> None:
+        y, x = np.mgrid[:60, :60]
+        envelope = np.exp(-((y - 40.0) ** 2 + (x - 18.0) ** 2) / (2.0 * 6.0**2))
+        patch = envelope * np.cos(2.0 * np.pi * x / 6.0)
+        out = wavelet_power_2d(patch, 1.0, [4.0, 6.0, 9.0])
+        scale, row, column = np.unravel_index(np.argmax(out.power), out.power.shape)
+        assert scale == 1
+        assert abs(row - 40) <= 1
+        assert abs(column - 18) <= 1
+        assert np.max(out.power[:, :10]) < 1e-3 * np.max(out.power)
+
+    def test_spacings(self) -> None:
+        # a field and its transpose, on a grid with two spacings
+        x = noise(96, 14, 20)
+        out = wavelet_power_2d(x, (2.0, 0.5), [9.0, 12.0])
+        swapped = wavelet_power_2d(x.T, (0.5, 2.0), [9.0, 12.0])
+        assert_matches_oracle(np.swapaxes(swapped.power, -1, -2), out.power, rtol=1e-9)
+
+    def test_the_cone(self) -> None:
+        out = wavelet_power_2d(noise(97, 12, 20), (1.0, 0.5), [1.0, 2.0, 9.0])
+        assert out.inside_cone.shape == out.power.shape == (3, 12, 20)
+        # √2 from the rows' edges and the columns': rows 2 … 9, columns 3 … 16
+        expected = np.zeros((12, 20), dtype=bool)
+        expected[2:10, 3:17] = True
+        assert_matches_oracle(out.inside_cone[0], expected, rtol=0.0)
+        assert not out.inside_cone[-1].any()
+        out = wavelet_power_2d(noise(98, 12, 20), 1.0, [9.0], periodic=True)
+        assert out.inside_cone.all()
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize("periodic", [True, False])
+    def test_backends_and_precision(self, periodic: bool) -> None:
+        def of(x: Any) -> Any:
+            out = wavelet_power_2d(
+                x, (0.5, 0.75), [1.5, 2.0], n_angles=4, periodic=periodic
+            )
+            return out.wavenumber, 1.0 + out.power
+
+        x = noise(99, 2, 6, 5)
+        assert_backends_agree(of, x)
+        assert_traces(of, x[None])
+        assert_refuses_dataarrays(of, x)
+        assert_grad_matches_fd(lambda x: of(x)[1], x[0])
+
+    def test_errors(self) -> None:
+        x = noise(100, 8, 8)
+        with pytest.raises(ValidationError, match="'n_angles'"):
+            wavelet_power_2d(x, 1.0, [2.0], n_angles=0)
+        with pytest.raises(ValidationError, match="positive and ascending"):
+            wavelet_power_2d(x, 1.0, [-2.0])
+        with pytest.raises(ValidationError, match="at least 2 samples"):
+            wavelet_power_2d(x[0], 1.0, [2.0])

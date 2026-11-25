@@ -16,6 +16,7 @@ from diagnostix.exceptions import ValidationError
 __all__ = [
     "Detrend",
     "Window",
+    "as_complex",
     "checked_spacing",
     "demean_or_detrend",
     "one_sided",
@@ -153,6 +154,12 @@ def one_sided(n: int) -> np.ndarray:
     if n % 2 == 0:
         modes[-1] = 1.0
     return modes
+
+
+def as_complex(xp: ModuleType, x: Any) -> Any:
+    """Real samples in the complex dtype of their precision."""
+    # the full transforms of the standard take complex input
+    return xp.astype(x, xp.complex64 if x.dtype == xp.float32 else xp.complex128)
 
 
 def squared_magnitude(xp: ModuleType, z: Any) -> Any:
