@@ -25,10 +25,14 @@ from diagnostix.spectra import (
     Spectrum2D,
     coherence,
     cross_spectrum,
+    enstrophy_flux,
+    integral_scale,
     isotropic_spectrum,
+    kinetic_energy_flux,
     power_spectrum,
     power_spectrum_2d,
     rotary_spectrum,
+    spectral_slope,
 )
 
 
@@ -683,3 +687,273 @@ class TestRotarySpectrum:
             rotary_spectrum(x, x, 1.0, axis=1)
         with pytest.raises(ValidationError, match="'detrend'"):
             rotary_spectrum(x, x, 1.0, detrend="mean")
+
+
+FLUXES = {"energy": kinetic_energy_flux, "enstrophy": enstrophy_flux}
+BOXES = {
+    "even": ((16, 16), (1.0, 1.0)),
+    "odd": ((9, 11), (0.5, 0.5)),
+    "oblong": ((12, 7), (0.5, 2.0)),
+}
+
+
+def coefficients(x: Any) -> np.ndarray:
+    return np.fft.fft2(x) / x.shape[-1] / x.shape[-2]
+
+
+def angular(shape: Any, spacing: Any) -> tuple[np.ndarray, np.ndarray]:
+    ky, kx = (
+        2.0 * np.pi * np.fft.fftfreq(n, d) for n, d in zip(shape, spacing, strict=True)
+    )
+    return ky[:, None], kx[None, :]
+
+
+def below_nyquist(shape: Any) -> np.ndarray:
+    """The modes that have an odd derivative."""
+    rows, columns = (np.fft.fftfreq(n, 1.0 / n) for n in shape)
+    half_y, half_x = (n / 2 for n in shape)
+    return (np.abs(rows)[:, None] < half_y) & (np.abs(columns)[None, :] < half_x)
+
+
+def stirred(seed: int, shape: Any, spacing: Any) -> tuple[np.ndarray, np.ndarray]:
+    """A periodic non-divergent velocity with every mode below the Nyquist ones."""
+    ky, kx = angular(shape, spacing)
+    psi_hat = np.where(below_nyquist(shape), np.fft.fft2(noise(seed, *shape)), 0.0)
+    u = np.fft.ifft2(-1j * ky * psi_hat).real
+    v = np.fft.ifft2(1j * kx * psi_hat).real
+    return u, v
+
+
+def triads(u: Any, v: Any, advected: Any, spacing: Any) -> np.ndarray:
+    """T of each mode, −Re ∑ q̂(k)* (û(p)·i(k − p)) q̂(k − p), mode by mode."""
+    shape = u.shape
+    ky, kx = angular(shape, spacing)
+    rows, columns = (np.fft.fftfreq(n, 1.0 / n).astype(int) for n in shape)
+    u_hat, v_hat = coefficients(u), coefficients(v)
+    below = below_nyquist(shape)
+    modes = [(j, i) for j, i in np.ndindex(*shape) if below[j, i]]
+    where = {(rows[j], columns[i]): (j, i) for j, i in modes}
+    out = np.zeros(shape)
+    for k in modes:
+        for p in modes:
+            q = where.get((rows[k[0]] - rows[p[0]], columns[k[1]] - columns[p[1]]))
+            if q is None:
+                continue
+            speed = u_hat[p] * 1j * kx[0, q[1]] + v_hat[p] * 1j * ky[q[0], 0]
+            for c_hat in advected:
+                out[k] -= (np.conj(c_hat[k]) * speed * c_hat[q]).real
+    return out
+
+
+def vorticity(u: Any, v: Any, spacing: Any) -> np.ndarray:
+    ky, kx = angular(u.shape, spacing)
+    return 1j * kx * coefficients(v) - 1j * ky * coefficients(u)
+
+
+def advected_by(name: str, u: Any, v: Any, spacing: Any) -> tuple[Any, ...]:
+    if name == "enstrophy":
+        return (vorticity(u, v, spacing),)
+    return coefficients(u), coefficients(v)
+
+
+@pytest.mark.parametrize("name", FLUXES)
+class TestFluxes:
+    @pytest.mark.parametrize(("shape", "spacing"), BOXES.values(), ids=BOXES)
+    def test_the_transfer_sums_to_zero(
+        self, name: str, shape: Any, spacing: Any
+    ) -> None:
+        # 3 to 14 % of the absolute sum without the finer grid
+        u, v = stirred(60, shape, spacing)
+        out = FLUXES[name](u, v, spacing)
+        scale = np.sum(np.abs(out.transfer))
+        assert abs(np.sum(out.transfer)) < 1e-13 * scale
+        assert abs(out.flux[0]) < 1e-13 * scale
+        # Π(kₙ) − Π(kₙ₊₁) = T(kₙ)
+        ends = np.append(out.flux, 0.0)
+        assert_matches_oracle(
+            ends[:-1] - ends[1:], out.transfer, rtol=0.0, atol=1e-13 * scale
+        )
+
+    @pytest.mark.parametrize("shape", [(6, 7), (7, 6)])
+    def test_the_sum_over_triads(self, name: str, shape: Any) -> None:
+        spacing = (0.5, 0.8)
+        u, v = stirred(61, shape, spacing)
+        expected = triads(u, v, advected_by(name, u, v, spacing), spacing)
+        ky, kx = angular(shape, spacing)
+        out = FLUXES[name](u, v, spacing)
+        step = 2.0 * np.pi * step_of(out.wavenumber)
+        ring = np.rint(np.hypot(ky, kx) / step).astype(int)
+        by_ring = np.bincount(ring.ravel(), expected.ravel(), out.transfer.size)
+        scale = float(np.max(np.abs(by_ring)))
+        assert_matches_oracle(out.transfer, by_ring, rtol=0.0, atol=1e-13 * scale)
+
+    def test_a_divergent_velocity_too(self, name: str) -> None:
+        spacing = (0.5, 0.8)
+        u, v = noise(62, 2, 5, 7)
+        expected = triads(u, v, advected_by(name, u, v, spacing), spacing)
+        out = FLUXES[name](u, v, spacing)
+        total = np.sum(expected)
+        assert np.sum(out.transfer) == pytest.approx(total, rel=1e-11)
+        assert abs(total) > 1e-3 * np.sum(np.abs(expected))
+
+    def test_the_rings_are_those_of_the_isotropic_spectrum(self, name: str) -> None:
+        u, v = stirred(63, (12, 7), (0.5, 2.0))
+        out = FLUXES[name](u, v, (0.5, 2.0))
+        spectrum = isotropic_spectrum(u, (0.5, 2.0))
+        assert_matches_oracle(out.wavenumber, spectrum.wavenumber, rtol=0.0)
+        assert out.transfer.shape == spectrum.power.shape
+
+    def test_a_finer_grid_changes_nothing(self, name: str) -> None:
+        y, x = 2.0 * np.pi * np.mgrid[:8, :8] / 8.0
+        fine_y, fine_x = 2.0 * np.pi * np.mgrid[:20, :20] / 20.0
+
+        def flow(y: Any, x: Any) -> tuple[Any, Any]:
+            u = np.sin(y) + np.sin(x + y) + 2.0 * np.sin(x + 2.0 * y + 1.0)
+            return u, -np.sin(x + y) - np.sin(x + 2.0 * y + 1.0)
+
+        coarse = FLUXES[name](*flow(y, x), 2.0 * np.pi / 8.0)
+        fine = FLUXES[name](*flow(fine_y, fine_x), 2.0 * np.pi / 20.0)
+        n = coarse.transfer.size
+        assert_matches_oracle(fine.transfer[:n], coarse.transfer, rtol=0, atol=1e-13)
+
+    def test_the_nyquist_modes_are_left_out(self, name: str) -> None:
+        u, v = stirred(64, (8, 8), (1.0, 1.0))
+        bare = FLUXES[name](u, v, 1.0).transfer
+        checks = 3.0 * (-1.0) ** np.arange(8)
+        more = FLUXES[name](u + checks, v + checks[:, None], 1.0).transfer
+        assert_matches_oracle(more, bare, rtol=0.0, atol=1e-11)
+
+    def test_a_taper_and_a_trend(self, name: str) -> None:
+        u, v = noise(65, 2, 9, 10)
+        w = hann(9, 10)
+        flux = FLUXES[name]
+        out = flux(u, v, 1.0, window="hann", detrend="constant")
+        u, v = (w * (a - a.mean()) for a in (u, v))
+        assert_matches_oracle(out.transfer, flux(u, v, 1.0).transfer, rtol=1e-10)
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self, name: str) -> None:
+        def of(u: Any, v: Any) -> Any:
+            out = FLUXES[name](u, v, (0.5, 0.75))
+            # relative to about the largest, as they cross zero
+            return out.wavenumber, 100.0 + out.transfer, 100.0 + out.flux
+
+        u, v = np.stack([stirred(s, (6, 7), (0.5, 0.75)) for s in (66, 67)], axis=1)
+        assert_backends_agree(of, u, v)
+        assert_traces(of, u[None], v[None])
+        assert_refuses_dataarrays(of, u, v)
+        assert_grad_matches_fd(lambda u: of(u, v[0])[2], u[0])
+
+    def test_errors(self, name: str) -> None:
+        with pytest.raises(ValidationError, match="at least 2 samples"):
+            FLUXES[name](np.ones(8), np.ones(8), 1.0)
+        with pytest.raises(ValidationError, match="spacing"):
+            FLUXES[name](np.ones((4, 4)), np.ones((4, 4)), (1.0, -1.0))
+
+
+def power_law(slope: float, n: int = 40) -> Spectrum:
+    k = 1e-6 * np.arange(n)
+    power = np.zeros(n)
+    power[1:] = 3.0 * k[1:] ** slope
+    return Spectrum(wavenumber=k, power=power)
+
+
+class TestSpectralSlope:
+    @pytest.mark.parametrize("slope", [-3.0, -5.0 / 3.0, 0.0, 1.0])
+    def test_a_power_law(self, slope: float) -> None:
+        out = spectral_slope(power_law(slope), 2e-6, 3e-5)
+        assert out == pytest.approx(slope, abs=1e-12)
+
+    def test_only_the_band_counts(self) -> None:
+        spectrum = power_law(-3.0)
+        k = spectrum.wavenumber
+        broken = np.where((k < 4.5e-6) | (k > 2.05e-5), 7.0, spectrum.power)
+        out = spectral_slope(Spectrum(k, broken), 4.5e-6, 2.05e-5)
+        assert out == pytest.approx(-3.0, abs=1e-12)
+
+    def test_least_squares(self) -> None:
+        k = np.arange(1.0, 20.0)
+        power = np.exp(noise(70, 3, 19)) * k**-2.0
+        out = spectral_slope(Spectrum(k, power), 3.0, 15.0)
+        band = slice(2, 15)
+        for got, one in zip(out, power, strict=True):
+            fit = np.polyfit(np.log(k[band]), np.log(one[band]), 1)
+            assert got == pytest.approx(fit[0], rel=1e-12)
+
+    def test_undefined(self) -> None:
+        spectrum = power_law(-3.0)
+        # one bin, none, and a bin without power
+        assert np.isnan(spectral_slope(spectrum, 4.9e-6, 5.1e-6))
+        assert np.isnan(spectral_slope(spectrum, 1.0, 2.0))
+        power = spectrum.power.copy()
+        power[6] = 0.0
+        assert np.isnan(spectral_slope(Spectrum(spectrum.wavenumber, power), 0, 1e-5))
+        # k = 0 is never in a band
+        assert np.isfinite(spectral_slope(spectrum, 0.0, 1e-5))
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self) -> None:
+        def of(k: Any, power: Any) -> Any:
+            return spectral_slope(Spectrum(k, power), 0.15, 0.75)
+
+        k = 0.1 * np.arange(10)
+        power = np.exp(noise(71, 2, 10)) / (0.1 + k) ** 3
+        assert_backends_agree(of, k, power, rtol32=1e-4)
+        assert_traces(of, k[None], power[None])
+        assert_refuses_dataarrays(of, k, power)
+        assert_grad_matches_fd(lambda power: of(k, power), power)
+        # a batch with a bin without power does not spoil the other one
+        power[0, 4] = 0.0
+        where = np.arange(2)[:, None] == 1
+        assert_finite_gradient(lambda power: of(k, power), power, where=where)
+
+    @pytest.mark.slow
+    @needs_jax
+    def test_the_slope_of_a_field_inside_a_loss(self) -> None:
+        import jax
+
+        def of(x: Any) -> Any:
+            return spectral_slope(isotropic_spectrum(x, 0.5), 0.2, 0.9)
+
+        x = noise(72, 12, 12)
+        assert_matches_oracle(jax.jit(of)(x), of(x), rtol=1e-10)
+        assert np.isfinite(jax.grad(of)(jax.numpy.asarray(x))).all()
+
+
+class TestIntegralScale:
+    def test_one_bin(self) -> None:
+        k = 0.1 * np.arange(6)
+        power = np.where(np.arange(6) == 4, 2.0, 0.0)
+        for moment in (1, 2, 3):
+            out = integral_scale(Spectrum(k, power), moment=moment)
+            assert out == pytest.approx(2.5, rel=1e-12)
+
+    def test_a_gaussian(self) -> None:
+        # P = exp(−k²/2σ²) on a one-sided axis: mean k is σ √(2/π), mean k² is σ²
+        sigma = 0.3
+        k = np.linspace(0.0, 6.0, 60001)
+        spectrum = Spectrum(k, np.exp(-0.5 * (k / sigma) ** 2))
+        first = integral_scale(spectrum)
+        assert first == pytest.approx(np.sqrt(np.pi / 2.0) / sigma, rel=2e-4)
+        second = integral_scale(spectrum, moment=2)
+        assert second == pytest.approx(1.0 / sigma, rel=2e-4)
+
+    def test_undefined(self) -> None:
+        k = 0.1 * np.arange(4)
+        power = np.zeros((2, 4))
+        power[0, 0] = 1.0
+        assert np.isnan(integral_scale(Spectrum(k, power))).all()
+        with pytest.raises(ValidationError, match="'moment'"):
+            integral_scale(Spectrum(k, power), moment=0)
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize("moment", [1, 2])
+    def test_backends_and_precision(self, moment: int) -> None:
+        def of(k: Any, power: Any) -> Any:
+            return integral_scale(Spectrum(k, power), moment=moment)
+
+        k, power = 0.1 * np.arange(7), 1.0 + noise(73, 2, 7) ** 2
+        assert_backends_agree(of, k, power)
+        assert_traces(of, k[None], power[None])
+        assert_refuses_dataarrays(of, k, power)
+        assert_grad_matches_fd(lambda power: of(k, power), power)
