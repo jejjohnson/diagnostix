@@ -48,6 +48,25 @@ r = rotary_spectrum(u, v, 3600.0)
 
 `rotary_spectrum` splits the variance of u + iv by the way it turns. The mean is half in each part, and the one Nyquist bin of an even series is clockwise, so both parts sum to the variance of u plus that of v.
 
+## Fluxes, slopes and scales
+
+`kinetic_energy_flux` and `enstrophy_flux` say how much advection gives to each ring of wavenumbers (`transfer`), and how much it carries through the lower edge of the ring (`flux`), positive towards small scales.
+
+```python
+from diagnostix.spectra import integral_scale, kinetic_energy_flux, spectral_slope
+
+# u, v: (time, Ny, Nx) of a doubly periodic box; x and y grow with the index
+out = kinetic_energy_flux(u, v, (2e3, 2e3))
+mean_flux = out.flux.mean(axis=0)
+# s in P ∝ kˢ, between 200 km and 20 km
+slope = spectral_slope(isotropic_spectrum(ssh, 2e3), 1 / 200e3, 1 / 20e3)
+scale = integral_scale(isotropic_spectrum(u, 2e3))
+```
+
+The products are formed on a grid 3/2 as fine, so nothing aliases and the transfer of a non-divergent velocity sums to zero. That holds for a periodic box only: a taper makes the velocity divergent, so none is applied unless asked for.
+
+A slope is `NaN` where its band holds fewer than two bins, or a bin without power. `integral_scale` is a wavelength: the inverse of a wavenumber in cycles per unit length.
+
 ::: diagnostix.spectra
     options:
       show_root_heading: false
