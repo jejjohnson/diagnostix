@@ -68,6 +68,26 @@ by_band = band_rmse(maps, truth, 10e3, bands)
 
 The resolved wavelength is interpolated in log k, and is `NaN` where the score never falls to the level. The squares of `band_rmse` over bands that cover every wavenumber add up to the mean square error; it filters a periodic box and tapers nothing.
 
+## Physical consistency
+
+A low RMSE can hide a state that no ocean could be in.
+
+```python
+from diagnostix.skill import (
+    density_inversion_fraction,
+    geostrophic_imbalance,
+    rms_divergence,
+)
+
+# 0 for a geostrophic flow, about 1 where the pressure has nothing to do with it
+imbalance = geostrophic_imbalance(u, v, ssh, grid, f=f, mask=mask)
+divergence = rms_divergence(u, v, grid, mask=mask)  # s⁻¹
+# the share of each column's levels that is upside down
+inversions = density_inversion_fraction(rho, -depth, axis=0, valid=wet)
+```
+
+`geostrophic_imbalance` and `rms_divergence` are means over the wet cells weighted by area, on a collocated grid, and their gradients are 0 at a balanced and at a non-divergent flow. `qg_balance_residual` compares a potential vorticity with that of its own streamfunction, on the Cartesian C-grid of `gridax.qg_potential_vorticity`. A resting state has no imbalance (`NaN`).
+
 ::: diagnostix.skill
     options:
       show_root_heading: false
