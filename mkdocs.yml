@@ -78,6 +78,7 @@ nav:
   - Climate: climate.md
   - Spectra: spectra.md
   - EOFs: eofs.md
+  - Skill: skill.md
   - Type aliases: typing.md
   - Exceptions: exceptions.md
 

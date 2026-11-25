@@ -24,6 +24,7 @@ SUBMODULES = [
     "eofs",
     "exceptions",
     "kinematics",
+    "skill",
     "spectra",
 ]
 
