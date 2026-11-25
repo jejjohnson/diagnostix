@@ -1,1 +1,1 @@
-"""Spectra: how the variance of a field is spread over scales."""
+"""Private code of `diagnostix.spectra`."""
