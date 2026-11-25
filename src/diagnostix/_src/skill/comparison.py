@@ -7,8 +7,7 @@ import math
 from typing import Any
 
 from jaxtyping import Float
-from pipekit_array.functions import floating_inputs
-from pipekit_array.records import register_record
+from pipekit_array.arrays import floating_inputs, register_record
 
 from diagnostix._src.reduce import require_axis
 from diagnostix._typing import ArrayLike

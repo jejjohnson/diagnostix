@@ -8,9 +8,12 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import divide_or_nan
-from pipekit_array.records import register_record
-from pipekit_array.weighted import reduction_inputs, used_weights
+from pipekit_array.arrays import (
+    divide_or_nan,
+    reduction_inputs,
+    register_record,
+    used_weights,
+)
 
 from diagnostix._src.climate.window import check_window, window_sum
 from diagnostix._src.reduce import require_axis

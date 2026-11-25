@@ -8,8 +8,12 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import divide_or_nan, floating_inputs, table_like
-from pipekit_array.records import register_record
+from pipekit_array.arrays import (
+    divide_or_nan,
+    floating_inputs,
+    register_record,
+    table_like,
+)
 
 from diagnostix._src.columns.crossing import first_crossing
 from diagnostix._src.skill.members import axes_of

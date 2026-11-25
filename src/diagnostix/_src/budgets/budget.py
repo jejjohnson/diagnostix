@@ -9,8 +9,7 @@ from typing import Any, Literal
 import gridax
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import constants_like, table_like
-from pipekit_array.records import register_record
+from pipekit_array.arrays import constants_like, register_record, table_like
 
 from diagnostix._src.budgets.flux import (
     boundary_flux,

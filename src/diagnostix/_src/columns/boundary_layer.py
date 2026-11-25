@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Any
 
 from geophysix.constants import STANDARD
-from pipekit_array.functions import like
+from pipekit_array.arrays import like
 
 from diagnostix._src.columns.crossing import crossing
 from diagnostix._src.columns.levels import column_inputs, levels_back

@@ -7,7 +7,7 @@ from types import ModuleType
 from typing import Any, Literal
 
 import numpy as np
-from pipekit_array.functions import constants_like
+from pipekit_array.arrays import constants_like
 
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError

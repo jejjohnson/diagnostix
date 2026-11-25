@@ -8,8 +8,12 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Bool, Float
-from pipekit_array.functions import constants_like, floating_inputs, squared_magnitude
-from pipekit_array.records import register_record
+from pipekit_array.arrays import (
+    constants_like,
+    floating_inputs,
+    register_record,
+    squared_magnitude,
+)
 
 from diagnostix._src.spectra.taper import (
     Detrend,

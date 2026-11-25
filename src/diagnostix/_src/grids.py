@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Any
 
 import gridax
-from pipekit_array.functions import floating_inputs
+from pipekit_array.arrays import floating_inputs
 
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError

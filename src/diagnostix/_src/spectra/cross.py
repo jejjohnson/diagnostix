@@ -9,13 +9,13 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Complex, Float
-from pipekit_array.functions import (
+from pipekit_array.arrays import (
     constants_like,
     floating_inputs,
+    register_record,
     squared_magnitude,
     table_like,
 )
-from pipekit_array.records import register_record
 
 from diagnostix._src.reduce import require_axis
 from diagnostix._src.spectra.taper import (

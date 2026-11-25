@@ -8,9 +8,14 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float, Int
-from pipekit_array.functions import divide_or_nan, floating_inputs, table_like
-from pipekit_array.records import register_record
-from pipekit_array.weighted import NO_GROUP, Groups
+from pipekit_array.arrays import (
+    NO_GROUP,
+    Groups,
+    divide_or_nan,
+    floating_inputs,
+    register_record,
+    table_like,
+)
 
 from diagnostix._src.climate.calendar import checked_slots
 from diagnostix._src.climate.window import check_window, window_sum

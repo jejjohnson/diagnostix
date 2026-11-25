@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Any
 
 import gridax
-from pipekit_array.functions import constants_like, table_like
+from pipekit_array.arrays import constants_like, table_like
 
 from diagnostix._src.budgets.faces import (
     across,

@@ -6,8 +6,12 @@ import dataclasses
 from types import ModuleType
 from typing import Any
 
-from pipekit_array.functions import boolean_like, divide_or_nan, floating_inputs
-from pipekit_array.weighted import used_weights
+from pipekit_array.arrays import (
+    boolean_like,
+    divide_or_nan,
+    floating_inputs,
+    used_weights,
+)
 
 from diagnostix._src.reduce import require_axis
 from diagnostix._typing import ArrayLike

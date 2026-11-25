@@ -6,7 +6,7 @@ from typing import Any
 
 import gridax
 from geophysix.constants import STANDARD
-from pipekit_array.functions import like
+from pipekit_array.arrays import like
 
 from diagnostix._src.grids import grid_inputs
 from diagnostix._typing import ArrayLike

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pipekit_array.functions import divide_or_nan, floating_inputs
+from pipekit_array.arrays import divide_or_nan, floating_inputs
 
 from diagnostix._src.climate.trend import linear_trend
 from diagnostix._src.spectra.power import Spectrum

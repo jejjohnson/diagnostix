@@ -7,13 +7,13 @@ from typing import Any
 
 import gridax
 from geophysix.constants import STANDARD
-from pipekit_array.functions import (
+from pipekit_array.arrays import (
     boolean_like,
     constants_like,
     divide_or_nan,
     floating_inputs,
+    used_weights,
 )
-from pipekit_array.weighted import used_weights
 
 from diagnostix._src.columns.levels import column_inputs
 from diagnostix._src.grids import grid_inputs

@@ -27,7 +27,7 @@ The public API is the set of public modules below; private code lives in `src/di
 
 ### Boundaries
 
-- **Layer rule.** diagnostix imports gridax, geophysix and the array backend `pipekit_array.functions`, and nothing else from the GeoStack at runtime. It never imports functax, integrix, gaussx, geotoolz or any GeoModels library; xrops, plumax and sesmax-ocean import it. functax is a reference library in the tests. `tests/test_import_isolation.py` checks this.
+- **Layer rule.** diagnostix imports gridax, geophysix and the array backend of `pipekit_array`, and nothing else from the GeoStack at runtime. It never imports functax, integrix, gaussx, geotoolz or any GeoModels library; xrops, plumax and sesmax-ocean import it. functax is a reference library in the tests. `tests/test_import_isolation.py` checks this.
 - **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`, with the `pipekit-ops` it brings. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to one tag, the one that gridax and geophysix pin. JAX and xarray are extras.
 - **Ownership test.** Does it take a field and say something about it, and does no library below already name it? Then it belongs here. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's. Extremes are xtremax's, and Lagrangian analysis is tracerax's.
 - **No convenience aliases.** A one-line combination of functions the stack has (absolute vorticity, eddy kinetic energy, f from latitude) is written by the caller, and the docs show it.
@@ -41,7 +41,7 @@ Each foundation brings a rule. Breaking one runs fine on your machine and fails 
 | Foundation | The package uses it for | The rule it brings |
 |---|---|---|
 | **NumPy ≥ 2.0** | The default namespace; tables built once on the host | NumPy in gives NumPy out; no function needs JAX or xarray installed. |
-| **pipekit-array** (`pipekit_array.functions`, `.weighted`, `.records`) | The namespace, the dtype and the device of a call; masked sums, means and groups; records as pytrees | A change to them is made there. Only functions of the array API standard are called on the namespace; `array_api_strict` in the tests refuses the rest. |
+| **pipekit-array** (`pipekit_array.arrays`) | The namespace, the dtype and the device of a call; masked sums, means and groups; records as pytrees | A change to them is made there. Only functions of the array API standard are called on the namespace; `array_api_strict` in the tests refuses the rest. |
 | **gridax** | Grids, masks, derivatives, `area_weights`, and the diagnostics it names | No stencil, metric term or cell area is written here when gridax has it. gridax does not run on `array_api_strict`, so a function that calls it is tested on NumPy and JAX. |
 | **geophysix** | Constants and facts at a point | No constant or Earth radius is written here. |
 | **JAX** (extra `jax`) | The same functions under `jit`, `vmap` and `grad` | Never imported at module level, and nothing inside the library calls `jax.jit`: the caller jits once, at the top. |
@@ -66,20 +66,20 @@ Before writing a helper, a constant, a conversion or a formula, find out whether
 | A cell area, a cosine-latitude weight | `gridax.area_weights` |
 | A curl, a divergence, a strain, an Okubo–Weiss, a geostrophic velocity, a kinetic energy | the gridax function of that name |
 | A density, a potential temperature, a Coriolis parameter, a wind speed | geophysix |
-| `xp = np if isinstance(x, np.ndarray) else jnp`, or `x.astype(float)` on an input | `namespace_of`, `floating_inputs` from `pipekit_array.functions` |
-| A constant as an array of the input's dtype, on its device | `pipekit_array.functions.like` |
-| `isinstance(x, xr.DataArray)`, or a call to `xr.apply_ufunc` | `@elementwise` and `is_dataarray` from `pipekit_array.functions` |
-| `nansum`, `nanmean`, a sum or mean with a mask or weights | `weighted_sum`, `weighted_mean` from `pipekit_array.weighted` |
-| `bincount`, `segment_sum`, a `groupby`, an average over rings, days or bins | `Groups` from `pipekit_array.weighted`, built once on the host |
-| A ratio that is NaN where its denominator is 0, a host table on an array's device, a mask as an array | `divide_or_nan`, `table_like`, `boolean_like` from `pipekit_array.functions` |
-| A host table or a grid's metric in an array's dtype too | `constants_like` from `pipekit_array.functions` |
-| The checks of another reduction along an axis | `reduction_inputs`, `used_weights` from `pipekit_array.weighted`, `require_axis` from `diagnostix._src.reduce` |
-| A frozen result that must be a JAX pytree | `@register_record` from `pipekit_array.records` |
+| `xp = np if isinstance(x, np.ndarray) else jnp`, or `x.astype(float)` on an input | `namespace_of`, `floating_inputs` from `pipekit_array.arrays` |
+| A constant as an array of the input's dtype, on its device | `pipekit_array.arrays.like` |
+| `isinstance(x, xr.DataArray)`, or a call to `xr.apply_ufunc` | `@elementwise` from `pipekit_array.kernels` and `is_dataarray` from `pipekit_array.arrays` |
+| `nansum`, `nanmean`, a sum or mean with a mask or weights | `weighted_sum`, `weighted_mean` from `pipekit_array.arrays` |
+| `bincount`, `segment_sum`, a `groupby`, an average over rings, days or bins | `Groups` from `pipekit_array.arrays`, built once on the host |
+| A ratio that is NaN where its denominator is 0, a host table on an array's device, a mask as an array | `divide_or_nan`, `table_like`, `boolean_like` from `pipekit_array.arrays` |
+| A host table or a grid's metric in an array's dtype too | `constants_like` from `pipekit_array.arrays` |
+| The checks of another reduction along an axis | `reduction_inputs`, `used_weights` from `pipekit_array.arrays`, `require_axis` from `diagnostix._src.reduce` |
+| A frozen result that must be a JAX pytree | `@register_record` from `pipekit_array.arrays` |
 | The checks of a call on a grid | `grid_inputs` from `diagnostix._src.grids` |
 | Times in a field's precision | `time_offsets` from `diagnostix._src.times` |
 | A derivative along an axis of uneven positions | `vertical_derivative`; inside, `uneven_difference` of `_src/columns/derivatives.py` |
 | A sum or a mean over a centred window | `window_sum` from `diagnostix._src.climate.window` |
-| A detrended, tapered field before a transform, \|z\|² | `tapered` from `diagnostix._src.spectra.taper`, `squared_magnitude` from `pipekit_array.functions` |
+| A detrended, tapered field before a transform, \|z\|² | `tapered` from `diagnostix._src.spectra.taper`, `squared_magnitude` from `pipekit_array.arrays` |
 | A sum over rings of the wavenumber plane | `Rings` from `diagnostix._src.spectra.rings` |
 | The cells of a score, a root with a gradient at 0, a ratio that is ∞ over 0 | `paired_inputs`, `root`, `ratio_or_inf` from `diagnostix._src.skill.moments` |
 | The members and cases of an ensemble score | `ensemble_inputs` from `diagnostix._src.skill.members` |
@@ -95,7 +95,7 @@ Everything composes because it keeps these contracts; the tests in "What enforce
 These are the decisions of [#15](https://github.com/jejjohnson/diagnostix/issues/15), where the measurements behind them are.
 
 - **Scope.** diagnostix owns a function that takes a field and says something about it, physically or statistically. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's.
-- **Arrays.** One implementation in functions of the Python array API standard, through `pipekit_array.functions`. JAX and xarray are never imported at module level. Nothing inside the library calls `jax.jit`; the caller jits once, at the top.
+- **Arrays.** One implementation in functions of the Python array API standard, through `pipekit_array.arrays`. JAX and xarray are never imported at module level. Nothing inside the library calls `jax.jit`; the caller jits once, at the top.
 - **Dependencies.** NumPy, gridax, geophysix and `pipekit-array[numpy,compat]`. Nothing else from the stack at runtime.
 - **Labels.** Elementwise functions carry pipekit's `@elementwise()` and take DataArrays. Functions over a grid or an axis take plain arrays, and xrops wraps them; a DataArray there raises `BackendError`, so labels are never lost silently.
 - **Axes.** A field on a grid ends in (y, x), on a collocated gridax grid, with any leading axes. A function along one axis takes `axis=-1`.

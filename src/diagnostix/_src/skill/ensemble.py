@@ -8,8 +8,7 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import constants_like, divide_or_nan
-from pipekit_array.records import register_record
+from pipekit_array.arrays import constants_like, divide_or_nan, register_record
 
 from diagnostix._src.skill.members import axes_of, ensemble_inputs, require_members
 from diagnostix._src.skill.moments import Axis, root
