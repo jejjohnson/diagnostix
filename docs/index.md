@@ -2,7 +2,7 @@
 
 > Physical and statistical diagnostics of geophysical fields on any array library.
 
-diagnostix is the GeoStack's library of diagnostics: it takes a geophysical field and says something about it, physically or statistically. It will hold velocity gradients and frontogenesis, mixed and boundary layers, budgets, climatologies and trends, spectra, EOFs, and the scores of a forecast.
+diagnostix is the GeoStack's library of diagnostics: it takes a geophysical field and says something about it, physically or statistically. It holds velocity gradients and frontogenesis, mixed and boundary layers, budgets, climatologies and trends, spectra, EOFs, and the scores of a forecast.
 
 It is written once, in the Python array API standard: NumPy in gives NumPy out, JAX in gives JAX out, and the same for any other array-API library. Neither JAX nor xarray is imported unless you pass one of their arrays.
 

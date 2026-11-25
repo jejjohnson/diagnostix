@@ -11,7 +11,7 @@ diagnostix is the GeoStack's library of diagnostics: it takes a geophysical fiel
 
 People build on a package like this, so **the package is a library of primitives**: new code composes what is here, and anything genuinely new lands where the next person will find and reuse it.
 
-The public API is the set of public modules below; private code lives in `src/diagnostix/_src/<module>/`, and code that several modules share in `src/diagnostix/_src/`. `src/diagnostix/__init__.py` exports only `__version__` and the exceptions. [jejjohnson/geostack#309](https://github.com/jejjohnson/geostack/issues/309) is the backlog, and each public module is created by its first feature issue.
+The public API is the set of public modules below; private code lives in `src/diagnostix/_src/<module>/`, and code that several modules share in `src/diagnostix/_src/`. `src/diagnostix/__init__.py` exports only `__version__` and the exceptions. [jejjohnson/geostack#309](https://github.com/jejjohnson/geostack/issues/309) is the backlog.
 
 | Module | Owns | Status |
 |---|---|---|
@@ -23,7 +23,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `climate` | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | now |
 | `spectra` | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | now |
 | `eofs` | Area-weighted EOFs, projection and reconstruction | now |
-| `skill` | Pointwise, ensemble, spectral and physical scores; the comparison of two methods in Wave 4 | now |
+| `skill` | Pointwise, ensemble, spectral and physical scores, the Diebold–Mariano statistic | now |
 
 ### Boundaries
 

@@ -13,7 +13,7 @@
 
 Physical and statistical diagnostics of geophysical fields on any array library.
 
-diagnostix is the GeoStack's library of diagnostics: it takes a geophysical field and says something about it, physically or statistically. It will hold velocity gradients and frontogenesis, mixed and boundary layers, budgets, climatologies and trends, spectra, EOFs, and the scores of a forecast.
+diagnostix is the GeoStack's library of diagnostics: it takes a geophysical field and says something about it, physically or statistically. It holds velocity gradients and frontogenesis, mixed and boundary layers, budgets, climatologies and trends, spectra, EOFs, and the scores of a forecast.
 
 It is written once, in the Python array API standard: NumPy in gives NumPy out, JAX in gives JAX out, and the same for any other array-API library. Neither JAX nor xarray is imported unless you pass one of their arrays.
 
@@ -31,7 +31,7 @@ uv run poe install
 
 ## Status
 
-`kinematics`, `columns`, `budgets`, `climate`, `spectra` and `eofs` are built. The order is:
+Every module is built:
 
 | Module | Holds | Wave |
 |---|---|---|
@@ -41,7 +41,7 @@ uv run poe install
 | `climate` | climatologies, anomalies, trends, running means | [Wave 2](https://github.com/jejjohnson/diagnostix/issues/10), built |
 | `spectra` | power, isotropic, cross, rotary and wavelet spectra, coherence; spectral fluxes, slopes and scales | [Wave 3](https://github.com/jejjohnson/diagnostix/issues/11), built |
 | `eofs` | area-weighted EOFs, projection and reconstruction | [Wave 3](https://github.com/jejjohnson/diagnostix/issues/11), built |
-| `skill` | pointwise, ensemble, spectral and physical scores | [Wave 4](https://github.com/jejjohnson/diagnostix/issues/12) |
+| `skill` | pointwise, ensemble, spectral and physical scores; the Diebold–Mariano statistic | [Wave 4](https://github.com/jejjohnson/diagnostix/issues/12), built |
 
 ## Design
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from diagnostix._src.skill.comparison import DieboldMariano, diebold_mariano
 from diagnostix._src.skill.ensemble import (
     SpreadSkill,
     crps,
@@ -37,6 +38,7 @@ from diagnostix._src.skill.spectral import (
 
 
 __all__ = [
+    "DieboldMariano",
     "PSDScore",
     "Reliability",
     "SpreadSkill",
@@ -46,6 +48,7 @@ __all__ = [
     "coverage",
     "crps",
     "density_inversion_fraction",
+    "diebold_mariano",
     "energy_score",
     "geostrophic_imbalance",
     "mae",

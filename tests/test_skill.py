@@ -35,6 +35,7 @@ from diagnostix.skill import (
     coverage,
     crps,
     density_inversion_fraction,
+    diebold_mariano,
     energy_score,
     geostrophic_imbalance,
     mae,
@@ -1208,3 +1209,107 @@ class TestQgBalanceResidual:
             qg_balance_residual(np.ones((6, 7)), np.ones((6, 7)), PLANE, f0=1.0)
         with pytest.raises(ValidationError, match="ends in"):
             qg_balance_residual(np.ones((6, 7)), np.ones((6, 7)), C_GRID, f0=1.0)
+
+
+class TestDieboldMariano:
+    @pytest.mark.parametrize("power", [1.0, 2.0, 3.0])
+    def test_one_step_is_the_t_statistic(self, power: float) -> None:
+        stats = pytest.importorskip("scipy.stats")
+        a, b = noise(140, 2, 3, 40)
+        d = np.abs(a) ** power - np.abs(b) ** power
+        out = diebold_mariano(a, b, power=power)
+        expected = stats.ttest_1samp(d, 0.0, axis=-1)
+        assert_matches_oracle(out.statistic, expected.statistic, rtol=1e-12)
+        assert out.degrees_of_freedom == 39
+        p_value = 2.0 * stats.t.sf(np.abs(out.statistic), out.degrees_of_freedom)
+        assert_matches_oracle(p_value, expected.pvalue, rtol=1e-11)
+
+    @pytest.mark.parametrize("horizon", [1, 2, 4])
+    @pytest.mark.parametrize("correction", [True, False])
+    def test_the_formula(self, horizon: int, correction: bool) -> None:
+        n = 50
+        a = 1.5 * noise(141, n)
+        b = noise(142, n)
+        d = a**2 - b**2
+        c = d - d.mean()
+        variance = np.mean(c**2)
+        for lag in range(1, horizon):
+            variance += 2.0 * np.sum(c[lag:] * c[:-lag]) / n
+        expected = d.mean() / np.sqrt(variance / n)
+        if correction:
+            expected *= np.sqrt((n + 1 - 2 * horizon + horizon * (horizon - 1) / n) / n)
+        out = diebold_mariano(a, b, horizon=horizon, correction=correction)
+        assert float(out.statistic) == pytest.approx(expected, rel=1e-12)
+        swapped = diebold_mariano(b, a, horizon=horizon, correction=correction)
+        assert float(swapped.statistic) == pytest.approx(-expected, rel=1e-12)
+        assert out.statistic > 0.0
+
+    @pytest.mark.parametrize("horizon", [1, 3])
+    def test_the_size_of_the_test(self, horizon: int) -> None:
+        stats = pytest.importorskip("scipy.stats")
+        # differences that are a moving average of the order of the horizon: the
+        # loss is linear, so the errors are made of them
+        steps = noise(143, 8000, 402)
+        d = sum(steps[:, k : 400 + k] for k in range(horizon))
+        out = diebold_mariano(100.0 + d, 100.0, power=1.0, horizon=horizon)
+        critical = stats.t.ppf(0.975, out.degrees_of_freedom)
+        rejected = np.abs(out.statistic) > critical
+        # an estimated variance is not chi-square for h > 1: half a point of it
+        share = np.mean(rejected)
+        if horizon == 1:
+            assert_mean(rejected, 0.05)
+        else:
+            assert share == pytest.approx(0.05, abs=0.015)
+
+    def test_axis_and_broadcasting(self) -> None:
+        a, b = noise(144, 30, 3), noise(145, 30, 1)
+        out = diebold_mariano(a, b, axis=0, horizon=2)
+        one = diebold_mariano(a[:, 1], b[:, 0], horizon=2)
+        assert out.statistic.shape == (3,)
+        assert float(out.statistic[1]) == pytest.approx(float(one.statistic), rel=1e-12)
+
+    def test_undefined(self) -> None:
+        a = noise(146, 12)
+        assert np.isnan(diebold_mariano(a, a).statistic)
+        # 0.1 is not a float, so the mean of twelve is not 0.1
+        assert np.isnan(diebold_mariano(np.full(12, 0.1), 0.0, power=1.0).statistic)
+        # differences that alternate: the variance of their mean is negative
+        d = (-1.0) ** np.arange(12)
+        out = diebold_mariano(10.0 + d, 10.0, power=1.0, horizon=2)
+        assert np.isnan(out.statistic)
+        a[3] = np.nan
+        assert np.isnan(diebold_mariano(a, 0.0).statistic)
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize("horizon", [1, 3])
+    def test_backends_and_precision(self, horizon: int) -> None:
+        def of(a: Any, b: Any) -> Any:
+            return diebold_mariano(a, b, horizon=horizon).statistic
+
+        a, b = noise(147, 2, 2, 30)
+        assert_backends_agree(of, a, b, rtol32=1e-4)
+        assert_traces(of, a[None], b[None])
+        assert_refuses_dataarrays(of, a, b)
+        assert_grad_matches_fd(lambda a: of(a, b), a)
+
+    @needs_jax
+    def test_gradient_beside_identical_errors(self) -> None:
+        import jax
+
+        a = noise(148, 2, 10)
+        b = np.stack([a[0], a[1] + noise(149, 10)])
+        assert_finite_gradient(lambda a: diebold_mariano(a, b).statistic, a)
+        # the degrees of freedom are static
+        out = diebold_mariano(a, b)
+        assert len(jax.tree.leaves(out)) == 1
+
+    def test_errors(self) -> None:
+        a = noise(150, 8)
+        for horizon in (0, 8):
+            with pytest.raises(ValidationError, match="'horizon' must be"):
+                diebold_mariano(a, a, horizon=horizon)
+        for power in (0.0, -1.0, np.nan):
+            with pytest.raises(ValidationError, match="'power' must be"):
+                diebold_mariano(a, a, power=power)
+        with pytest.raises(ValidationError, match="no axis 1"):
+            diebold_mariano(a, a, axis=1)
