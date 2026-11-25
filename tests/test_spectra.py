@@ -15,7 +15,7 @@ from _backends import (
 )
 from _oracles import sinusoid, xrft_power_spectrum, xrops_values
 from hypothesis import given, settings, strategies as st
-from pipekit_array.functions import namespace_of
+from pipekit_array.arrays import namespace_of
 from pipekit_array.testing import (
     assert_finite_gradient,
     assert_grad_matches_fd,

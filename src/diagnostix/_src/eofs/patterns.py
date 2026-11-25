@@ -9,13 +9,13 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Bool, Float, Int
-from pipekit_array.functions import (
+from pipekit_array.arrays import (
     boolean_like,
     divide_or_nan,
     floating_inputs,
+    register_record,
     table_like,
 )
-from pipekit_array.records import register_record
 
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError

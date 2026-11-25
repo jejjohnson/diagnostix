@@ -20,7 +20,7 @@ Private code goes in `src/diagnostix/_src/<module>/<topic>.py`; the public modul
 
 ## 3. Write it
 
-- Open with `xp, (x, y) = floating_inputs(x, y)` from `pipekit_array.functions`, and call only functions of the array API standard on `xp`. Never `import jax` or `import xarray` at module level, and never call `jax.jit`.
+- Open with `xp, (x, y) = floating_inputs(x, y)` from `pipekit_array.arrays`, and call only functions of the array API standard on `xp`. Never `import jax` or `import xarray` at module level, and never call `jax.jit`.
 - Elementwise: decorate with `@elementwise()`, so a DataArray in gives a DataArray out. Over a grid or an axis: plain arrays only; `floating_inputs` raises `BackendError` for a DataArray.
 - Axes: a field on a grid ends in (y, x); a function along one axis takes `axis=-1`.
 - Masks: `mask=` on a grid, `valid=` in statistics, boolean, True = use. Replace an invalid value by 0 through `where` before any product. An undefined result is NaN through a double `where`.

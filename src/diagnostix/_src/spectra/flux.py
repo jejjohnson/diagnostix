@@ -9,8 +9,7 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import constants_like, floating_inputs
-from pipekit_array.records import register_record
+from pipekit_array.arrays import constants_like, floating_inputs, register_record
 
 from diagnostix._src.spectra.rings import Rings
 from diagnostix._src.spectra.taper import Detrend, Window, checked_spacing, tapered

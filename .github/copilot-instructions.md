@@ -4,7 +4,7 @@ Read [`AGENTS.md`](../AGENTS.md) at the repository root first: it is the single 
 
 The essentials, in case you only read this file:
 
-- One package, `src/diagnostix/`: the GeoStack's library of physical and statistical diagnostics. It imports gridax, geophysix and `pipekit_array.functions`, and nothing else from the GeoStack at runtime (never functax, integrix, gaussx, geotoolz or a model). Public modules, each created by its first feature issue: `kinematics`, `columns`, `budgets`, `climate`, `spectra`, `eofs`, `skill`; private code in `_src/<module>/`. Search [`docs/api/capabilities.md`](../docs/api/capabilities.md) before writing a helper.
+- One package, `src/diagnostix/`: the GeoStack's library of physical and statistical diagnostics. It imports gridax, geophysix and `pipekit_array`, and nothing else from the GeoStack at runtime (never functax, integrix, gaussx, geotoolz or a model). Public modules, each created by its first feature issue: `kinematics`, `columns`, `budgets`, `climate`, `spectra`, `eofs`, `skill`; private code in `_src/<module>/`. Search [`docs/api/capabilities.md`](../docs/api/capabilities.md) before writing a helper.
 - Ownership test: does it take a field and say something about it, physically or statistically, and does no library below already name it? A quantity gridax names stays gridax's on every grid, a fact at a point is geophysix's, and labels are xrops'.
 - Keep the contracts in `AGENTS.md`:
   - **arrays**: one implementation in array API functions; the result is the same kind of array as the input; JAX and xarray are never imported at module level; nothing calls `jax.jit`; constants enter in the input's dtype;

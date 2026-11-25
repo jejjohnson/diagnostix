@@ -33,7 +33,8 @@ from _oracles import (
 )
 from geophysix.earth import SPHERE
 from hypothesis import given, strategies as st
-from pipekit_array.functions import elementwise, floating_inputs, like
+from pipekit_array.arrays import floating_inputs, like
+from pipekit_array.kernels import elementwise
 from pipekit_array.testing import (
     assert_finite_gradient,
     assert_grad_matches_fd,

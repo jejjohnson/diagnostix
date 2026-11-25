@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from pipekit_array.functions import elementwise
+from pipekit_array.kernels import elementwise
 
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError

@@ -23,7 +23,7 @@ The diff (`git diff <base>...HEAD`, default base `main`) or the files / commit r
    - a finite difference, a curl, a divergence, a strain, an Okubo–Weiss, a geostrophic velocity, a kinetic energy, a cell area or an area mean → gridax;
    - a generic basis or an FFT helper → not a runtime import here, but check that functax does not name it for the caller;
    - an alias that only combines functions the stack has → delete it and show the combination in the docs;
-   - an array-namespace switch or an `xr.apply_ufunc` call → `pipekit_array.functions`;
+   - an array-namespace switch or an `xr.apply_ufunc` call → `pipekit_array.arrays`;
    - a new exception class for a bad argument → `ValidationError`;
    - a public name that duplicates another public name for a different object (`tests/test_capabilities.py` will fail on it).
 

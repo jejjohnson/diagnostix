@@ -5,8 +5,7 @@ from __future__ import annotations
 from types import ModuleType
 from typing import Any
 
-from pipekit_array.functions import boolean_like, floating_inputs
-from pipekit_array.weighted import used_weights
+from pipekit_array.arrays import boolean_like, floating_inputs, used_weights
 
 from diagnostix._src.reduce import require_axis
 from diagnostix._src.skill.moments import Axis, Cells

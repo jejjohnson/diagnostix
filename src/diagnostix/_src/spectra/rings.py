@@ -8,8 +8,7 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import constants_like
-from pipekit_array.weighted import Groups
+from pipekit_array.arrays import Groups, constants_like
 
 from diagnostix._src.spectra.taper import one_sided
 

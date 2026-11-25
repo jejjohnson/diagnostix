@@ -8,14 +8,14 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import (
+from pipekit_array.arrays import (
     boolean_like,
     constants_like,
     divide_or_nan,
     floating_inputs,
+    register_record,
+    used_weights,
 )
-from pipekit_array.records import register_record
-from pipekit_array.weighted import used_weights
 
 from diagnostix._src.skill.members import ensemble_inputs
 from diagnostix._src.skill.moments import Axis

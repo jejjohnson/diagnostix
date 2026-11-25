@@ -9,7 +9,7 @@ import gridax.analysis
 import numpy as np
 from geophysix.constants import STANDARD
 from geophysix.seawater import LINEAR_EOS
-from pipekit_array.functions import floating_inputs, like
+from pipekit_array.arrays import floating_inputs, like
 
 from diagnostix._src.columns.levels import column_inputs, levels_back
 from diagnostix._typing import ArrayLike

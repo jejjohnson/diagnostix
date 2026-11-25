@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import ModuleType
 from typing import Any
 
-from pipekit_array.functions import floating_inputs, table_like
+from pipekit_array.arrays import floating_inputs, table_like
 
 from diagnostix._src.climate.calendar import checked_slots
 from diagnostix._src.climate.climatology import Climatology, check_slots_axis

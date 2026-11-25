@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Any, Literal
 
 import numpy as np
-from pipekit_array.functions import boolean_like, table_like
+from pipekit_array.arrays import boolean_like, table_like
 
 from diagnostix._src.columns.crossing import crossing
 from diagnostix._src.columns.levels import column_inputs

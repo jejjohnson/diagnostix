@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Any
 
 import numpy as np
-from pipekit_array.functions import table_like
+from pipekit_array.arrays import table_like
 
 from diagnostix._typing import ArrayLike
 

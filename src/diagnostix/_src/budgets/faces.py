@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Any
 
 import gridax
-from pipekit_array.functions import constants_like, namespace_of
+from pipekit_array.arrays import constants_like, namespace_of
 
 
 __all__ = ["across", "face_lengths", "face_mean", "orientation"]

@@ -31,7 +31,7 @@ Each score has the value it should have for a reliable ensemble of any size, one
 
 ```python
 from diagnostix.skill import coverage, crps, rank_histogram, spread_skill
-from pipekit_array.weighted import weighted_mean
+from pipekit_array.arrays import weighted_mean
 
 # ensemble: (E, T, Ny, Nx), reference: (T, Ny, Nx)
 score = weighted_mean(crps(ensemble, reference), weights=area, valid=ocean)
