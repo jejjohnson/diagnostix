@@ -21,6 +21,8 @@ from hypothesis import given, strategies as st
 
 from diagnostix import ValidationError
 from diagnostix.skill import (
+    PSDScore,
+    band_rmse,
     bias,
     correlation,
     coverage,
@@ -28,12 +30,15 @@ from diagnostix.skill import (
     energy_score,
     mae,
     nrmse_score,
+    psd_score,
     r2_score,
     rank_histogram,
     reliability,
+    resolved_scale,
     rmse,
     spread_skill,
 )
+from diagnostix.spectra import isotropic_spectrum, power_spectrum
 
 
 def noise(seed: int, *shape: int) -> np.ndarray:
@@ -663,3 +668,232 @@ class TestReliability:
         for edges in ([0.5], [0.5, 0.5], [1.0, 0.0], [[0.0, 1.0]], [0.0, np.nan]):
             with pytest.raises(ValidationError, match="'edges' must be"):
                 reliability([0.5], [1.0], edges=edges)
+
+
+class TestPsdScore:
+    def test_stored_xrops(self) -> None:
+        stored = xrops_values("skill")
+        out = psd_score(
+            stored["spectral_prediction"],
+            stored["spectral_truth"],
+            float(stored["spectral_spacing"]),
+            isotropic=False,
+            window=None,
+            detrend="constant",
+        )
+        # two-sided, from −Nyquist: its positive half is ours without the ends
+        half = stored["spectral_frequency"] > 0.0
+        assert_matches_oracle(
+            out.wavenumber[1:-1], stored["spectral_frequency"][half], rtol=1e-12
+        )
+        assert_matches_oracle(
+            out.score[1:-1], stored["spectral_psd_score"][half], rtol=1e-10
+        )
+
+    @pytest.mark.parametrize("isotropic", [True, False])
+    def test_the_spectra(self, isotropic: bool) -> None:
+        p, r = noise(80, 2, 3, 4, 12, 10)
+        spacing = (2.0, 0.5) if isotropic else 0.5
+        spectrum: Any = isotropic_spectrum if isotropic else power_spectrum
+        out = psd_score(p, r, spacing, isotropic=isotropic)
+        error, truth = spectrum(p - r, spacing), spectrum(r, spacing)
+        assert_matches_oracle(out.wavenumber, truth.wavenumber, rtol=0.0)
+        # a ring that holds no mode, between those of a long grid, is NaN
+        with np.errstate(invalid="ignore"):
+            expected = 1.0 - error.power / truth.power
+        assert_matches_oracle(out.score, expected, rtol=1e-12)
+        # the mean of the spectra, then the ratio
+        out = psd_score(p, r, spacing, isotropic=isotropic, average=(0, 1))
+        error, truth = (np.mean(s.power, axis=(0, 1)) for s in (error, truth))
+        with np.errstate(invalid="ignore"):
+            expected = 1.0 - error / truth
+        assert_matches_oracle(out.score, expected, rtol=1e-12)
+        negative = psd_score(p, r, spacing, isotropic=isotropic, average=-3)
+        assert negative.score.shape[0] == 3
+
+    def test_perfect_and_hopeless(self) -> None:
+        r = noise(81, 12, 12)
+        assert_matches_oracle(psd_score(r, r, 1.0).score, np.ones(9), rtol=0.0)
+        out = psd_score(0.0, r, 1.0)
+        assert_matches_oracle(out.score, np.zeros(9), rtol=0.0, atol=1e-12)
+        out = psd_score(-r, r, 1.0)
+        assert_matches_oracle(out.score, np.full(9, -3.0), rtol=1e-12)
+
+    def test_no_power_is_nan(self) -> None:
+        out = psd_score(noise(82, 8, 8), 0.0, 1.0)
+        assert np.isnan(out.score).all()
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize("isotropic", [True, False])
+    def test_backends_and_precision(self, isotropic: bool) -> None:
+        def of(p: Any, r: Any) -> Any:
+            out = psd_score(p, r, 0.5, isotropic=isotropic, average=0)
+            # k = 0 is a ratio of two small numbers
+            return out.wavenumber, 1.0 + out.score[..., 1:]
+
+        p, r = noise(83, 2, 3, 6, 7)
+        assert_backends_agree(of, p, r, rtol=1e-10, rtol32=2e-3)
+        assert_traces(of, p[None], r[None], rtol=1e-10)
+        assert_refuses_dataarrays(of, p, r)
+        assert_grad_matches_fd(lambda p: of(p, r[:2])[1], p[:2], rtol=1e-5)
+
+    @needs_jax
+    def test_gradient_at_a_perfect_prediction(self) -> None:
+        r = noise(84, 8, 8)
+        assert_finite_gradient(lambda p: psd_score(p, r, 1.0).score, r)
+
+    def test_errors(self) -> None:
+        r = noise(85, 3, 8, 8)
+        for average in (1, -1, (0, 2)):
+            with pytest.raises(ValidationError, match="'average' must not name"):
+                psd_score(r, r, 1.0, average=average)
+        with pytest.raises(ValidationError, match="no axis 3"):
+            psd_score(r, r, 1.0, average=3)
+        with pytest.raises(ValidationError, match="at least 2 samples"):
+            psd_score(r[0, 0], r[0, 0], 1.0)
+        with pytest.raises(ValidationError, match="spacing"):
+            psd_score(r, r, (1.0, 1.0), isotropic=False)
+
+
+class TestResolvedScale:
+    def test_a_low_pass_filter(self) -> None:
+        # every mode below the cut-off is kept, and none above
+        n, step = 128, 5.0
+        r = noise(86, 40, n)
+        z = np.fft.rfft(r, axis=-1)
+        k = np.fft.rfftfreq(n, step)
+        cut = 0.5 * (k[20] + k[21])
+        p = np.fft.irfft(np.where(k < cut, z, 0.0), n, axis=-1)
+        score = psd_score(
+            p, r, step, isotropic=False, average=0, window=None, detrend=None
+        )
+        out = float(resolved_scale(score))
+        # between the last bin that is kept and the first that is not
+        assert 1.0 / k[21] < out < 1.0 / k[20]
+        assert out == pytest.approx(1.0 / np.sqrt(k[20] * k[21]), rel=1e-9)
+
+    def test_an_error_that_grows_with_wavenumber(self) -> None:
+        # S = 1 − (k/k_N)², 0.5 at k_N/√2
+        stored = xrops_values("skill")
+        score = psd_score(
+            stored["spectral_prediction"],
+            stored["spectral_truth"],
+            float(stored["spectral_spacing"]),
+            isotropic=False,
+            window=None,
+            detrend=None,
+        )
+        out = float(resolved_scale(score))
+        exact = np.sqrt(2.0) * 2.0 * float(stored["spectral_spacing"])
+        assert out == pytest.approx(exact, rel=1e-3)
+        # xrops interpolates in the wavelength
+        stored_scale = float(stored["spectral_resolved_scale"])
+        assert out == pytest.approx(stored_scale, rel=3e-3)
+
+    def test_the_first_crossing(self) -> None:
+        k = 0.1 * np.arange(8)
+        s = np.asarray([0.0, 1.0, 0.9, 0.4, 0.8, 0.3, 0.2, 0.1])
+        out = float(resolved_scale(PSDScore(k, s)))
+        weight = (0.9 - 0.5) / (0.9 - 0.4)
+        log_k = (1.0 - weight) * np.log(0.2) + weight * np.log(0.3)
+        assert out == pytest.approx(np.exp(-log_k), rel=1e-12)
+        # another level, and one that is never reached
+        assert 1.0 / 0.7 < float(resolved_scale(PSDScore(k, s), level=0.15)) < 1.0 / 0.6
+        assert np.isnan(resolved_scale(PSDScore(k, s), level=0.05))
+        # below it from the start
+        assert float(resolved_scale(PSDScore(k, s), level=1.5)) == pytest.approx(10.0)
+
+    def test_a_nan_before_the_crossing(self) -> None:
+        k = 0.1 * np.arange(6)
+        s = np.asarray(
+            [[1.0, 1.0, np.nan, 0.2, 0.1, 0.0], [1.0, 1, 0.8, 0.2, 0, np.nan]]
+        )
+        out = resolved_scale(PSDScore(k, s))
+        assert np.isnan(out[0])
+        assert np.isfinite(out[1])
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self) -> None:
+        def of(k: Any, s: Any) -> Any:
+            return resolved_scale(PSDScore(k, s))
+
+        k = 0.1 * np.arange(6)
+        s = np.asarray([[1.0, 1.0, 0.8, 0.2, 0.1, 0.0], [1.0, 0.9, 0.7, 0.6, 0.4, 0.2]])
+        assert_backends_agree(of, k, s, rtol32=1e-4)
+        assert_traces(of, k[None], s[None])
+        assert_refuses_dataarrays(of, k, s)
+        assert_grad_matches_fd(lambda s: of(k, s), s)
+
+    @needs_jax
+    def test_inside_a_loss(self) -> None:
+        import jax
+
+        r = noise(87, 4, 16, 16)
+        p = r + 0.8 * noise(88, 4, 16, 16)
+
+        def of(p: Any) -> Any:
+            return resolved_scale(psd_score(p, r, 1.0, average=0), level=0.4)
+
+        assert_matches_oracle(jax.jit(of)(p), of(p), rtol=1e-9)
+        assert np.isfinite(jax.grad(of)(jax.numpy.asarray(p))).all()
+
+
+class TestBandRmse:
+    BANDS = ((0.0, 0.1), (0.1, 0.25), (0.25, np.inf))
+
+    @pytest.mark.parametrize("shape", [(12, 12), (9, 14), (8, 7)])
+    def test_bands_that_cover_the_plane(self, shape: Any) -> None:
+        p, r = noise(89, 2, 3, *shape)
+        out = band_rmse(p, r, (1.0, 1.3), self.BANDS)
+        total = np.mean((p - r) ** 2, axis=(-2, -1))
+        assert out.shape == (3, 3)
+        assert_matches_oracle(np.sum(out**2, axis=-1), total, rtol=1e-12)
+        # one band is the whole
+        whole = band_rmse(p, r, 1.0, [(0.0, np.inf)])
+        assert_matches_oracle(whole[..., 0], rmse(p, r, axis=(-2, -1)), rtol=1e-12)
+
+    def test_a_wave_is_in_its_band(self) -> None:
+        y, x = np.mgrid[:20, :20]
+        # |k| = 5/20 exactly, a lower edge, which is inside
+        wave = 3.0 * np.cos(2.0 * np.pi * (3 * y + 4 * x) / 20.0)
+        out = band_rmse(wave, 0.0, 1.0, self.BANDS)
+        expected = [0.0, 0.0, 3.0 / np.sqrt(2.0)]
+        assert_matches_oracle(out, expected, rtol=0.0, atol=1e-13)
+
+    def test_weights(self) -> None:
+        p, r, w = noise(90, 3, 10, 11)
+        w = w**2
+        k = np.hypot(np.fft.fftfreq(10)[:, None], np.fft.fftfreq(11))
+        z = np.fft.fft2(p - r)
+        expected = []
+        for low, high in self.BANDS:
+            inside = (k >= low) & (k < high)
+            filtered = np.fft.ifft2(np.where(inside, z, 0.0)).real
+            expected.append(np.sqrt(np.average(filtered**2, weights=w)))
+        out = band_rmse(p, r, 1.0, self.BANDS, weights=w)
+        assert_matches_oracle(out, expected, rtol=1e-12)
+
+    @pytest.mark.slow
+    def test_backends_and_precision(self) -> None:
+        def of(p: Any, r: Any, w: Any) -> Any:
+            return band_rmse(p, r, 1.0, self.BANDS, weights=w)
+
+        p, r, w = noise(91, 2, 6, 7), noise(92, 6, 7), 0.5 + noise(93, 6, 7) ** 2
+        assert_backends_agree(of, p, r, w, rtol32=1e-4)
+        assert_traces(of, p[None], r[None], w[None])
+        assert_refuses_dataarrays(of, p, r, w)
+        assert_grad_matches_fd(lambda p: of(p, r, w), p[0])
+        assert_finite_gradient(lambda p: of(p, r, w), r)
+
+    def test_errors(self) -> None:
+        x = noise(94, 8, 8)
+        for bands in ([], [0.1, 0.2], [(0.1, 0.2, 0.3)]):
+            with pytest.raises(ValidationError, match="pairs of wavenumbers"):
+                band_rmse(x, x, 1.0, bands)
+        for band in ((0.2, 0.1), (0.1, 0.1), (-0.1, 0.1), (np.nan, 0.1)):
+            with pytest.raises(ValidationError, match="a band must be"):
+                band_rmse(x, x, 1.0, [band])
+        with pytest.raises(ValidationError, match="no wavenumber of this grid"):
+            band_rmse(x, x, 1.0, [(0.01, 0.02)])
+        with pytest.raises(ValidationError, match="at least 2 samples"):
+            band_rmse(x[0], x[0], 1.0, self.BANDS)

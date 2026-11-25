@@ -22,11 +22,19 @@ from diagnostix._src.skill.ranks import (
     rank_histogram,
     reliability,
 )
+from diagnostix._src.skill.spectral import (
+    PSDScore,
+    band_rmse,
+    psd_score,
+    resolved_scale,
+)
 
 
 __all__ = [
+    "PSDScore",
     "Reliability",
     "SpreadSkill",
+    "band_rmse",
     "bias",
     "correlation",
     "coverage",
@@ -34,9 +42,11 @@ __all__ = [
     "energy_score",
     "mae",
     "nrmse_score",
+    "psd_score",
     "r2_score",
     "rank_histogram",
     "reliability",
+    "resolved_scale",
     "rmse",
     "spread_skill",
 ]
