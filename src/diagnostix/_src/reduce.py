@@ -19,9 +19,11 @@ from diagnostix.exceptions import ValidationError
 
 __all__ = [
     "boolean_like",
+    "constants_like",
     "divide_or_nan",
     "on_device",
     "reduction_inputs",
+    "require_axis",
     "weighted_mean",
     "weighted_sum",
 ]
@@ -174,6 +176,22 @@ def on_device(xp: ModuleType, host: np.ndarray, ref: Any) -> Any:
     if array_api_compat.is_jax_namespace(xp):
         return xp.asarray(host)
     return xp.asarray(host, device=array_api_compat.device(ref))
+
+
+def constants_like(xp: ModuleType, host: np.ndarray, ref: Any) -> Any:
+    """A host table of numbers in ``ref``'s library and dtype, on its device."""
+    return xp.astype(on_device(xp, host, ref), ref.dtype)
+
+
+def require_axis(values: Any, axis: int) -> None:
+    """Raise unless an array has an axis.
+
+    Raises:
+        ValidationError: If it does not.
+    """
+    if not -values.ndim <= axis < values.ndim:
+        msg = f"no axis {axis} for the samples of an array of shape {values.shape}"
+        raise ValidationError(msg)
 
 
 def _kept(xp: ModuleType, x: Any, w: Any, m: Any) -> Any:

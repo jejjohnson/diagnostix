@@ -11,7 +11,12 @@ from jaxtyping import Float
 
 from diagnostix._src.climate.window import check_window, window_sum
 from diagnostix._src.records import register_record
-from diagnostix._src.reduce import divide_or_nan, reduction_inputs, used_weights
+from diagnostix._src.reduce import (
+    divide_or_nan,
+    reduction_inputs,
+    require_axis,
+    used_weights,
+)
 from diagnostix._src.times import time_offsets
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
@@ -164,7 +169,7 @@ def running_mean(
         array([1. , 3.5, 6. ])
     """
     xp, samples, _, use = reduction_inputs(x, None, valid)
-    _require_axis(samples, axis)
+    require_axis(samples, axis)
     check_window(window, samples.shape[axis], periodic=periodic)
     samples = xp.moveaxis(samples, axis, -1)
     if use is not None:
@@ -193,7 +198,7 @@ def _fit(
     """
     traced = None if isinstance(time, (list, tuple, np.ndarray)) else time
     xp, samples, w, use = reduction_inputs(x, weights, valid, params=(traced,))
-    _require_axis(samples, axis)
+    require_axis(samples, axis)
     shape = tuple(np.shape(time))
     if shape != (samples.shape[axis],):
         msg = (
@@ -237,14 +242,3 @@ def _has_two_times(xp: ModuleType, used: Any, t: Any) -> Any:
     latest = xp.max(xp.where(counted, t, -infinite), axis=-1, keepdims=True)
     earliest = xp.min(xp.where(counted, t, infinite), axis=-1, keepdims=True)
     return latest > earliest
-
-
-def _require_axis(values: Any, axis: int) -> None:
-    """Raise unless an array has an axis.
-
-    Raises:
-        ValidationError: If it does not.
-    """
-    if not -values.ndim <= axis < values.ndim:
-        msg = f"no axis {axis} for the samples of an array of shape {values.shape}"
-        raise ValidationError(msg)

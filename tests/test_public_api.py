@@ -23,6 +23,7 @@ SUBMODULES = [
     "columns",
     "exceptions",
     "kinematics",
+    "spectra",
 ]
 
 
