@@ -23,7 +23,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `climate` | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | now |
 | `spectra` | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | now |
 | `eofs` | Area-weighted EOFs, projection and reconstruction | now |
-| `skill` | Pointwise scores; ensemble, spectral and physical ones in Wave 4 | now |
+| `skill` | Pointwise and ensemble scores; spectral and physical ones in Wave 4 | now |
 
 ### Boundaries
 
@@ -81,6 +81,7 @@ Before writing a helper, a constant, a conversion or a formula, find out whether
 | A detrended, tapered field before a transform, \|z\|² | `tapered`, `squared_magnitude` from `diagnostix._src.spectra.taper` |
 | A sum over rings of the wavenumber plane | `Rings` from `diagnostix._src.spectra.rings` |
 | The cells of a score, a root with a gradient at 0, a ratio that is ∞ over 0 | `paired_inputs`, `root`, `ratio_or_inf` from `diagnostix._src.skill.moments` |
+| The members and cases of an ensemble score | `ensemble_inputs` from `diagnostix._src.skill.members` |
 | The face lengths of a grid, a mean onto its faces | `face_lengths`, `face_mean` from `diagnostix._src.budgets.faces` |
 | A new exception for a bad argument | `ValidationError` |
 
