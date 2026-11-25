@@ -10,20 +10,21 @@ import gridax
 import numpy as np
 import pytest
 from _backends import (
+    EAGER_KINDS,
     GRID_KINDS,
     assert_backends_agree,
     assert_refuses_dataarrays,
     needs_jax,
 )
-from _harness import (
+from _oracles import reliable_ensemble, xrops_values, xskillscore_crps
+from hypothesis import given, strategies as st
+from pipekit_array.testing import (
     assert_finite_gradient,
     assert_grad_matches_fd,
     assert_matches_oracle,
+    assert_mean,
     assert_traces,
 )
-from _oracles import reliable_ensemble, xrops_values, xskillscore_crps
-from _sampling import assert_mean
-from hypothesis import given, strategies as st
 
 from diagnostix import ValidationError
 from diagnostix.kinematics import geostrophic_residual
@@ -831,7 +832,7 @@ class TestResolvedScale:
 
         k = 0.1 * np.arange(6)
         s = np.asarray([[1.0, 1.0, 0.8, 0.2, 0.1, 0.0], [1.0, 0.9, 0.7, 0.6, 0.4, 0.2]])
-        assert_backends_agree(of, k, s, rtol32=1e-4)
+        assert_backends_agree(of, k, s, rtol32=1e-4, kinds=EAGER_KINDS)
         assert_traces(of, k[None], s[None])
         assert_refuses_dataarrays(of, k, s)
         assert_grad_matches_fd(lambda s: of(k, s), s)

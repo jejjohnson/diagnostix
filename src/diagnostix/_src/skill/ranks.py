@@ -8,10 +8,15 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import boolean_like, divide_or_nan, floating_inputs
+from pipekit_array.functions import (
+    boolean_like,
+    constants_like,
+    divide_or_nan,
+    floating_inputs,
+)
 from pipekit_array.records import register_record
+from pipekit_array.weighted import used_weights
 
-from diagnostix._src.reduce import constants_like, used_weights
 from diagnostix._src.skill.members import ensemble_inputs
 from diagnostix._src.skill.moments import Axis
 from diagnostix._typing import ArrayLike
@@ -146,7 +151,7 @@ def coverage(
     # the share of slot r's probabilities, [r, r + 1] / (E + 1), in the interval
     upper = np.minimum(0.5 * (1.0 + level) * slots, np.arange(1, slots + 1))
     lower = np.maximum(0.5 * (1.0 - level) * slots, np.arange(slots))
-    inside = constants_like(xp, np.maximum(upper - lower, 0.0), x)
+    inside = constants_like(np.maximum(upper - lower, 0.0), x, xp)
     return cells.mean(xp.sum(_slot_shares(xp, x, y) * inside, axis=-1))
 
 
@@ -201,9 +206,9 @@ def reliability(
     if mask is not None:
         p, o = (xp.where(mask, a, xp.zeros_like(a)) for a in (p, o))
     p, o, used = (xp.reshape(a, (-1, 1)) for a in (p, o, used))
-    lower = constants_like(xp, table[:-1], p)
-    upper = constants_like(xp, table[1:], p)
-    last = constants_like(xp, np.arange(table.size - 1) == table.size - 2, p) > 0
+    lower = constants_like(table[:-1], p, xp)
+    upper = constants_like(table[1:], p, xp)
+    last = constants_like(np.arange(table.size - 1) == table.size - 2, p, xp) > 0
     member = (p >= lower) & ((p < upper) | (last & (p == upper)))
 
     def total(values: Any) -> Any:
@@ -234,7 +239,7 @@ def _slot_shares(xp: ModuleType, x: Any, y: Any) -> Any:
         return xp.sum(ones, axis=-1, keepdims=True, dtype=x.dtype)
 
     below, equal = count(x < reference), count(x == reference)
-    slot = constants_like(xp, np.arange(n + 1.0), x)
+    slot = constants_like(np.arange(n + 1.0), x, xp)
     inside = (slot >= below) & (slot <= below + equal)
     share = 1.0 / (equal + 1.0)
     shares = xp.where(inside, share, xp.zeros_like(share))

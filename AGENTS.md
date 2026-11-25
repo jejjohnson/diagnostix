@@ -72,13 +72,14 @@ Before writing a helper, a constant, a conversion or a formula, find out whether
 | `nansum`, `nanmean`, a sum or mean with a mask or weights | `weighted_sum`, `weighted_mean` from `pipekit_array.weighted` |
 | `bincount`, `segment_sum`, a `groupby`, an average over rings, days or bins | `Groups` from `pipekit_array.weighted`, built once on the host |
 | A ratio that is NaN where its denominator is 0, a host table on an array's device, a mask as an array | `divide_or_nan`, `table_like`, `boolean_like` from `pipekit_array.functions` |
-| A host table in an array's dtype too, the checks of another reduction along an axis | `constants_like`, `reduction_inputs`, `require_axis` from `diagnostix._src.reduce` |
+| A host table or a grid's metric in an array's dtype too | `constants_like` from `pipekit_array.functions` |
+| The checks of another reduction along an axis | `reduction_inputs`, `used_weights` from `pipekit_array.weighted`, `require_axis` from `diagnostix._src.reduce` |
 | A frozen result that must be a JAX pytree | `@register_record` from `pipekit_array.records` |
-| The checks of a call on a grid, or a grid's metric in a field's dtype | `grid_inputs`, `metric_like` from `diagnostix._src.grids` |
+| The checks of a call on a grid | `grid_inputs` from `diagnostix._src.grids` |
 | Times in a field's precision | `time_offsets` from `diagnostix._src.times` |
 | A derivative along an axis of uneven positions | `vertical_derivative`; inside, `uneven_difference` of `_src/columns/derivatives.py` |
 | A sum or a mean over a centred window | `window_sum` from `diagnostix._src.climate.window` |
-| A detrended, tapered field before a transform, \|z\|² | `tapered`, `squared_magnitude` from `diagnostix._src.spectra.taper` |
+| A detrended, tapered field before a transform, \|z\|² | `tapered` from `diagnostix._src.spectra.taper`, `squared_magnitude` from `pipekit_array.functions` |
 | A sum over rings of the wavenumber plane | `Rings` from `diagnostix._src.spectra.rings` |
 | The cells of a score, a root with a gradient at 0, a ratio that is ∞ over 0 | `paired_inputs`, `root`, `ratio_or_inf` from `diagnostix._src.skill.moments` |
 | The members and cases of an ensemble score | `ensemble_inputs` from `diagnostix._src.skill.members` |
@@ -131,7 +132,7 @@ Most rules here are tests, so CI tells you when one breaks. Read a test's docstr
 | `tests/test_build_docs.py` | The two-tool docs pipeline: inventory parsing, anchor repair, link checking, the inventory port and the absolute nav URL in `docs/myst.yml`, the files copied to the site root (`ROOT_FILES`) |
 | `tests/conftest.py` | `jax_enable_x64` is on whenever JAX is importable; tests marked `jax` or `xarray` are skipped when it is not |
 | `tests/test_import_isolation.py` | Importing every module loads neither JAX nor xarray, and no stack library but gridax, geophysix, pipekit-array and pipekit-ops |
-| `tests/test_harness.py` | The harness itself: each check passes on a right function and fails on a wrong one, each closed form and library in `tests/_oracles.py` agrees with an independent evaluation, and every stored xrops value is what its name says |
+| `tests/test_harness.py` | The checks of `pipekit_array.testing` pass on toy functions, each closed form and library in `tests/_oracles.py` agrees with an independent evaluation, and every stored xrops value is what its name says |
 | CI job "without JAX and xarray" | The base install imports and passes the tests with neither installed |
 | CI job "reference libraries" | The `oracles` group resolves, and the comparisons with it pass |
 | `uv sync --locked` in every test job | `uv.lock` matches the pins in `pyproject.toml` |
@@ -142,12 +143,12 @@ Most rules here are tests, so CI tells you when one breaks. Read a test's docstr
 Each function brings five tests, as `add-diagnostic` lays out, with the helpers of `tests/`:
 
 1. **Closed form** or stored reference, at a stated tolerance, in float64 (`assert_matches_oracle`, `tests/_oracles.py`). A closed form comes first, and `xrops_values` only where xrops is right ([#16](https://github.com/jejjohnson/diagnostix/issues/16)).
-2. **Backends**: NumPy, JAX and `array_api_strict` give the same values. A function that calls gridax runs on NumPy and JAX only (`assert_backends_agree`, with `kinds=GRID_KINDS`; `labelled=True` for an elementwise function, `assert_refuses_dataarrays` for the others).
+2. **Backends**: NumPy, JAX, `array_api_strict` and dask give the same values. A function that calls gridax runs on NumPy and JAX only (`assert_backends_agree`, with `kinds=GRID_KINDS`), and one that dask cannot run says so in its docstring (`kinds=EAGER_KINDS`; `labelled=True` for an elementwise function, `assert_refuses_dataarrays` for the others).
 3. **Transforms**: under JAX, eager, `jit` and `vmap` over a batch of one agree (`assert_traces`).
 4. **Gradients**: autodiff against central differences where the function is smooth, and finite on the valid cells when others are invalid (`assert_grad_matches_fd`, `assert_finite_gradient`).
 5. **Precision**: float32 in gives float32 out (`assert_backends_agree` checks it).
 
-A test on random draws uses `assert_mean` (`tests/_sampling.py`). xrops will import diagnostix, so its values are stored in `tests/data/`, with the geotoolz commit in each file name, by `write_xrops.py`, which refuses another commit; add an array there rather than a test dependency, and check it against its formula in `tests/test_harness.py`.
+A test on random draws uses `assert_mean` of `pipekit_array.testing`. xrops will import diagnostix, so its values are stored in `tests/data/`, with the geotoolz commit in each file name, by `write_xrops.py`, which refuses another commit; add an array there rather than a test dependency, and check it against its formula in `tests/test_harness.py`.
 
 ## Recipes
 

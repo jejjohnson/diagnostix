@@ -8,7 +8,7 @@ import gridax
 import numpy as np
 import pytest
 from _backends import assert_backends_agree, assert_refuses_dataarrays, needs_jax
-from _harness import (
+from pipekit_array.testing import (
     assert_finite_gradient,
     assert_grad_matches_fd,
     assert_matches_oracle,

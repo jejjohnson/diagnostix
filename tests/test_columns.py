@@ -8,21 +8,22 @@ import gridax.analysis
 import numpy as np
 import pytest
 from _backends import (
+    EAGER_KINDS,
     GRID_KINDS,
     assert_backends_agree,
     assert_refuses_dataarrays,
     needs_jax,
 )
-from _harness import (
-    assert_finite_gradient,
-    assert_grad_matches_fd,
-    assert_matches_oracle,
-    assert_traces,
-)
 from _oracles import (
     linear_pycnocline,
     neutral_layer_under_inversion,
     xrops_values,
+)
+from pipekit_array.testing import (
+    assert_finite_gradient,
+    assert_grad_matches_fd,
+    assert_matches_oracle,
+    assert_traces,
 )
 
 from diagnostix import ValidationError
@@ -116,9 +117,11 @@ class TestFirstCrossing:
         z = np.arange(9.0) ** 1.5
         # the last column never gets there
         f[-1] = 0.1
-        assert_backends_agree(lambda f, z: first_crossing(f, z, 2.0), f, z)
+        assert_backends_agree(
+            lambda f, z: first_crossing(f, z, 2.0), f, z, kinds=EAGER_KINDS
+        )
         level = np.full(6, 2.0)
-        assert_backends_agree(first_crossing, f, z, level)
+        assert_backends_agree(first_crossing, f, z, level, kinds=EAGER_KINDS)
 
     def test_refuses_dataarrays(self) -> None:
         assert_refuses_dataarrays(
@@ -267,13 +270,20 @@ class TestMixedLayerDepth:
         density = 0.002 * depth
         valid = np.stack([depth[0] >= 0.0, depth[1] < 60.0, depth[0] < 0.0])
         assert_backends_agree(
-            lambda rho, z, m: mixed_layer_depth(rho, z, valid=m), density, depth, valid
+            lambda rho, z, m: mixed_layer_depth(rho, z, valid=m),
+            density,
+            depth,
+            valid,
+            kinds=EAGER_KINDS,
         )
         # a table of the host, next to arrays of any library
         assert_backends_agree(
-            lambda rho, z: mixed_layer_depth(rho, z, valid=valid), density, depth
+            lambda rho, z: mixed_layer_depth(rho, z, valid=valid),
+            density,
+            depth,
+            kinds=EAGER_KINDS,
         )
-        assert_backends_agree(mixed_layer_depth, density, DEPTH)
+        assert_backends_agree(mixed_layer_depth, density, DEPTH, kinds=EAGER_KINDS)
 
     def test_refuses_dataarrays(self) -> None:
         assert_refuses_dataarrays(mixed_layer_depth, 0.002 * DEPTH, DEPTH)
@@ -468,7 +478,8 @@ class TestBoundaryLayerHeight:
         z = np.asarray([0.0, 64.0, 128.0, 256.0])
         theta = np.asarray([[256.0, 256.0, 257.0, 260.0], [256.0, 255.0, 256.0, 256.0]])
         u = np.asarray([2.0, 4.0, 6.0, 8.0])
-        assert_backends_agree(boundary_layer_height, theta, u, 0.5 * u, z)
+        columns = theta, u, 0.5 * u, z
+        assert_backends_agree(boundary_layer_height, *columns, kinds=EAGER_KINDS)
 
     def test_refuses_dataarrays(self) -> None:
         assert_refuses_dataarrays(boundary_layer_height, *sheared_columns(6, (2, 4)))

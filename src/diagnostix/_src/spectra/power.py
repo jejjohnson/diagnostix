@@ -8,10 +8,10 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import constants_like, floating_inputs, squared_magnitude
 from pipekit_array.records import register_record
 
-from diagnostix._src.reduce import constants_like, require_axis
+from diagnostix._src.reduce import require_axis
 from diagnostix._src.spectra.rings import Rings
 from diagnostix._src.spectra.taper import (
     Detrend,
@@ -19,7 +19,6 @@ from diagnostix._src.spectra.taper import (
     as_complex,
     checked_spacing,
     one_sided,
-    squared_magnitude,
     tapered,
 )
 from diagnostix._typing import ArrayLike
@@ -122,11 +121,11 @@ def power_spectrum(
     n = x.shape[-1]
     x, mean_square = tapered(xp, x, 1, window, detrend)
     # P(k) = c (Δx / (N U)) |x̂(k)|²
-    density = squared_magnitude(xp, xp.fft.rfft(x, axis=-1))
+    density = squared_magnitude(xp.fft.rfft(x, axis=-1), xp)
     scale = one_sided(n) * (step / (n * mean_square))
     return Spectrum(
-        wavenumber=constants_like(xp, np.fft.rfftfreq(n, step), x),
-        power=density * constants_like(xp, scale, x),
+        wavenumber=constants_like(np.fft.rfftfreq(n, step), x, xp),
+        power=density * constants_like(scale, x, xp),
     )
 
 
@@ -185,9 +184,9 @@ def power_spectrum_2d(
         np.fft.fftshift(np.fft.fftfreq(n, step))
         for n, step in zip(shape, steps, strict=True)
     )
-    ky, kx = (constants_like(xp, k, x) for k in wavenumbers)
+    ky, kx = (constants_like(k, x, xp) for k in wavenumbers)
     return Spectrum2D(
-        wavenumber_y=ky, wavenumber_x=kx, power=squared_magnitude(xp, z) * scale
+        wavenumber_y=ky, wavenumber_x=kx, power=squared_magnitude(z, xp) * scale
     )
 
 
@@ -236,10 +235,10 @@ def isotropic_spectrum(
     x, mean_square = tapered(xp, x, 2, window, detrend)
     ny, nx = x.shape[-2:]
     rings = Rings.of_grid((ny, nx), (steps[0], steps[1]))
-    density = squared_magnitude(xp, xp.fft.rfftn(x, axes=(-2, -1)))
+    density = squared_magnitude(xp.fft.rfftn(x, axes=(-2, -1)), xp)
     # P = (Δk_x Δk_y / Δk) ∑ P₂, with P₂ = (Δx Δy / (Nx Ny U)) |x̂|²
     scale = steps[0] * steps[1] / (ny * nx * mean_square) * rings.cell / rings.step
     return Spectrum(
-        wavenumber=constants_like(xp, rings.wavenumber, x),
+        wavenumber=constants_like(rings.wavenumber, x, xp),
         power=rings.sum(xp, density * scale),
     )

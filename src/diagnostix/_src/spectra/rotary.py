@@ -7,15 +7,14 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import constants_like, floating_inputs, squared_magnitude
 from pipekit_array.records import register_record
 
-from diagnostix._src.reduce import constants_like, require_axis
+from diagnostix._src.reduce import require_axis
 from diagnostix._src.spectra.taper import (
     Detrend,
     Window,
     checked_spacing,
-    squared_magnitude,
     tapered,
 )
 from diagnostix._typing import ArrayLike
@@ -97,8 +96,8 @@ def rotary_spectrum(
     v, _ = tapered(xp, v, 1, window, detrend)
     # ŵ(±k) = û(±k) + i v̂(±k), with û(−k) = û(k)* as u is real
     u_hat, v_hat = xp.fft.rfft(u, axis=-1), xp.fft.rfft(v, axis=-1)
-    positive = squared_magnitude(xp, u_hat + 1j * v_hat)
-    negative = squared_magnitude(xp, u_hat - 1j * v_hat)
+    positive = squared_magnitude(u_hat + 1j * v_hat, xp)
+    negative = squared_magnitude(u_hat - 1j * v_hat, xp)
     # the mean is half of each, and the one Nyquist bin is the negative one
     share = np.ones(n // 2 + 1)
     share[0] = 0.5
@@ -107,7 +106,7 @@ def rotary_spectrum(
         turning[-1] = 0.0
     scale = step / (n * mean_square)
     return RotarySpectrum(
-        wavenumber=constants_like(xp, np.fft.rfftfreq(n, step), u),
-        counter_clockwise=positive * constants_like(xp, turning * scale, u),
-        clockwise=negative * constants_like(xp, share * scale, u),
+        wavenumber=constants_like(np.fft.rfftfreq(n, step), u, xp),
+        counter_clockwise=positive * constants_like(turning * scale, u, xp),
+        clockwise=negative * constants_like(share * scale, u, xp),
     )

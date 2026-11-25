@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Any
 
 import gridax
-from pipekit_array.functions import table_like
+from pipekit_array.functions import constants_like, table_like
 
 from diagnostix._src.budgets.faces import (
     across,
@@ -15,7 +15,7 @@ from diagnostix._src.budgets.faces import (
     orientation,
 )
 from diagnostix._src.budgets.volume import ControlVolume
-from diagnostix._src.grids import grid_inputs, metric_like
+from diagnostix._src.grids import grid_inputs
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -160,11 +160,11 @@ def flux_divergence(
     """
     xp, east, north, ref = _fluxes(q, u, v, grid, thickness)
     wraps = [axis in grid.periodic for axis in "xy"]
-    sign_x, sign_y = (metric_like(xp, orientation(grid, a), ref) for a in "xy")
+    sign_x, sign_y = (constants_like(orientation(grid, a), ref, xp) for a in "xy")
     # Fᴱ_{j,i} − Fᴱ_{j,i−1}, towards larger x whichever way it is stored
     out_x = sign_x * across(xp, east, axis=-1, periodic=wraps[0])
     out_y = sign_y * across(xp, north, axis=-2, periodic=wraps[1])
-    return (out_x + out_y) / metric_like(xp, gridax.area_weights(grid), ref)
+    return (out_x + out_y) / constants_like(gridax.area_weights(grid), ref, xp)
 
 
 def require_volume(volume: ControlVolume, grid: Any) -> None:

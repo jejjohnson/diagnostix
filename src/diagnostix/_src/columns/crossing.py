@@ -31,7 +31,8 @@ def first_crossing(
     z⋆ = z_{k−1} + (ℓ − f_{k−1}) / (f_k − f_{k−1}) · (z_k − z_{k−1}).
 
     Under autodiff the index k is piecewise constant, and the gradient flows
-    through the interpolation.
+    through the interpolation. dask has no ``take_along_axis``, so compute a dask
+    array first.
 
     Args:
         values: f, with its levels along ``axis``.

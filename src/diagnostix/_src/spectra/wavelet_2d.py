@@ -8,17 +8,15 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Bool, Float
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import constants_like, floating_inputs, squared_magnitude
 from pipekit_array.records import register_record
 
-from diagnostix._src.reduce import constants_like
 from diagnostix._src.spectra.taper import (
     Detrend,
     as_complex,
     checked_spacing,
     demean_or_detrend,
     require_samples,
-    squared_magnitude,
 )
 from diagnostix._src.spectra.wavelet import checked_scales
 from diagnostix._typing import ArrayLike
@@ -138,16 +136,16 @@ def wavelet_power_2d(
         # exp(−2π² |s k − e_θ|²), the product of one factor per axis
         along_y = np.exp(-2.0 * np.pi**2 * (s_ky - np.sin(theta)) ** 2)
         along_x = np.exp(-2.0 * np.pi**2 * (s_kx - np.cos(theta)) ** 2)
-        w_hat = x_hat * constants_like(xp, along_y[:, :, None], x)
-        w_hat = w_hat * constants_like(xp, along_x[:, None, :], x)
+        w_hat = x_hat * constants_like(along_y[:, :, None], x, xp)
+        w_hat = w_hat * constants_like(along_x[:, None, :], x, xp)
         w = xp.fft.ifftn(w_hat, axes=(-2, -1))[..., :ny, :nx]
-        power = squared_magnitude(xp, w)
+        power = squared_magnitude(w, xp)
         total = power if total is None else total + power
     # P = (s / C) ⟨|W|²⟩
     scale = s[:, None, None] / (_admissibility() * n_angles)
     return LocalSpectrum(
-        wavenumber=constants_like(xp, 1.0 / s, x),
-        power=total * constants_like(xp, scale, x),
+        wavenumber=constants_like(1.0 / s, x, xp),
+        power=total * constants_like(scale, x, xp),
         scales=tuple(s.tolist()),
         spacing=(dy, dx),
         periodic=periodic,

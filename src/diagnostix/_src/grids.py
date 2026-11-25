@@ -1,4 +1,4 @@
-"""The arguments of a function on a collocated grid, and the grid's metric."""
+"""The arguments of a function on a collocated grid."""
 
 from __future__ import annotations
 
@@ -6,14 +6,13 @@ from types import ModuleType
 from typing import Any
 
 import gridax
-import numpy as np
-from pipekit_array.functions import floating_inputs, table_like
+from pipekit_array.functions import floating_inputs
 
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
 
-__all__ = ["grid_inputs", "metric_like", "require_collocated"]
+__all__ = ["grid_inputs", "require_collocated"]
 
 #: The grids of a function on a grid: 2-D, every field at the same points.
 COLLOCATED = (gridax.CartesianAGrid2D, gridax.SphericalAGrid2D)
@@ -64,14 +63,3 @@ def require_collocated(grid: Any) -> None:
         names = " or ".join(kind.__name__ for kind in COLLOCATED)
         msg = f"'grid' must be a {names}, got {type(grid).__name__}"
         raise ValidationError(msg)
-
-
-def metric_like(xp: ModuleType, metric: Any, ref: Any) -> Any:
-    """A metric of a grid in ``ref``'s library and dtype, on its device.
-
-    The metric is a property of the grid, NumPy or traced with it, and takes the
-    precision of the field.
-    """
-    if isinstance(metric, (np.ndarray, np.generic)):
-        metric = table_like(np.asarray(metric), ref, xp)
-    return xp.astype(metric, ref.dtype)

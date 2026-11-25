@@ -8,10 +8,9 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import divide_or_nan
+from pipekit_array.functions import constants_like, divide_or_nan
 from pipekit_array.records import register_record
 
-from diagnostix._src.reduce import constants_like
 from diagnostix._src.skill.members import axes_of, ensemble_inputs, require_members
 from diagnostix._src.skill.moments import Axis, root
 from diagnostix._typing import ArrayLike
@@ -84,7 +83,7 @@ def crps(
     # from y, so that float32 keeps the differences of warm temperatures
     d = x - y[..., None]
     # ∑ₑₑ′ |xₑ − xₑ′| = 2 ∑ᵢ (2i − E − 1) x₍ᵢ₎
-    factor = constants_like(xp, 2.0 * np.arange(1, n + 1) - n - 1.0, x)
+    factor = constants_like(2.0 * np.arange(1, n + 1) - n - 1.0, x, xp)
     half_pairs = xp.sum(factor * xp.sort(d, axis=-1), axis=-1)
     return xp.mean(xp.abs(d), axis=-1) - half_pairs / _pairs(n, fair)
 

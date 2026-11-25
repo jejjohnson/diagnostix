@@ -97,7 +97,8 @@ def boundary_layer_height(
     """The lowest height where the bulk Richardson number is critical.
 
     h is the first z above the lowest level where Ri_b(z) = Ri_c, with Ri_b
-    linear between the levels (`bulk_richardson`, `first_crossing`).
+    linear between the levels (`bulk_richardson`, `first_crossing`). Compute a
+    dask array first, as for `first_crossing`.
 
     Args:
         virtual_potential_temperature: θ_v (K), with its levels along ``axis``,

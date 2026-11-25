@@ -7,17 +7,22 @@ from typing import Any
 
 import numpy as np
 import pytest
-from _backends import assert_backends_agree, assert_refuses_dataarrays, needs_jax
-from _harness import (
+from _backends import (
+    EAGER_KINDS,
+    assert_backends_agree,
+    assert_refuses_dataarrays,
+    needs_jax,
+)
+from _oracles import sinusoid, xrft_power_spectrum, xrops_values
+from hypothesis import given, settings, strategies as st
+from pipekit_array.functions import namespace_of
+from pipekit_array.testing import (
     assert_finite_gradient,
     assert_grad_matches_fd,
     assert_matches_oracle,
+    assert_mean,
     assert_traces,
 )
-from _oracles import sinusoid, xrft_power_spectrum, xrops_values
-from _sampling import assert_mean
-from hypothesis import given, settings, strategies as st
-from pipekit_array.functions import namespace_of
 from scipy import signal
 
 from diagnostix import ValidationError
@@ -844,7 +849,7 @@ class TestFluxes:
             return out.wavenumber, 100.0 + out.transfer, 100.0 + out.flux
 
         u, v = np.stack([stirred(s, (6, 7), (0.5, 0.75)) for s in (66, 67)], axis=1)
-        assert_backends_agree(of, u, v)
+        assert_backends_agree(of, u, v, kinds=EAGER_KINDS)
         assert_traces(of, u[None], v[None])
         assert_refuses_dataarrays(of, u, v)
         assert_grad_matches_fd(lambda u: of(u, v[0])[2], u[0])

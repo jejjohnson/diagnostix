@@ -7,15 +7,20 @@ from typing import Any
 
 import numpy as np
 import pytest
-from _backends import assert_backends_agree, assert_refuses_dataarrays, needs_jax
-from _harness import (
+from _backends import (
+    EAGER_KINDS,
+    assert_backends_agree,
+    assert_refuses_dataarrays,
+    needs_jax,
+)
+from _oracles import xrops_values
+from hypothesis import given, strategies as st
+from pipekit_array.testing import (
     assert_finite_gradient,
     assert_grad_matches_fd,
     assert_matches_oracle,
     assert_traces,
 )
-from _oracles import xrops_values
-from hypothesis import given, strategies as st
 
 from diagnostix import ValidationError
 from diagnostix._src.climate.window import window_sum
@@ -328,7 +333,9 @@ class TestHarmonicClimatology:
             )
             return out.mean, out.count
 
-        assert_backends_agree(of, x, valid, rtol=1e-11)
+        # with no mask, every point shares one system
+        kinds = EAGER_KINDS if with_valid else None
+        assert_backends_agree(of, x, valid, rtol=1e-11, kinds=kinds)
 
     @needs_jax
     @pytest.mark.slow

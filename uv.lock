@@ -443,6 +443,7 @@ oracles = [
 ]
 test = [
     { name = "array-api-strict" },
+    { name = "dask", extra = ["array"] },
     { name = "hypothesis" },
     { name = "scipy" },
 ]
@@ -492,6 +493,7 @@ oracles = [
 ]
 test = [
     { name = "array-api-strict", specifier = ">=2.3" },
+    { name = "dask", extras = ["array"], specifier = ">=2024.6" },
     { name = "hypothesis", specifier = ">=6.100" },
     { name = "scipy", specifier = ">=1.14" },
 ]

@@ -30,7 +30,8 @@ def mixed_layer_depth(
     """The depth where the density first exceeds its near-surface value.
 
     h is the first z below z_ref where ρ(z) − ρ(z_ref) = Δρ, with ρ linear
-    between the levels, at z_ref too.
+    between the levels, at z_ref too. Compute a dask array first, as for
+    `first_crossing`.
 
     Args:
         density: ρ (kg m⁻³), usually potential density, with its levels along
