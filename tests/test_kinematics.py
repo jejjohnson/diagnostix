@@ -15,12 +15,6 @@ from _backends import (
     assert_refuses_dataarrays,
     needs_jax,
 )
-from _harness import (
-    assert_finite_gradient,
-    assert_grad_matches_fd,
-    assert_matches_oracle,
-    assert_traces,
-)
 from _oracles import (
     Motion,
     metpy_advection,
@@ -31,6 +25,12 @@ from _oracles import (
     xrops_values,
 )
 from geophysix.earth import SPHERE as EARTH
+from pipekit_array.testing import (
+    assert_finite_gradient,
+    assert_grad_matches_fd,
+    assert_matches_oracle,
+    assert_traces,
+)
 
 from diagnostix import ValidationError
 from diagnostix.kinematics import (

@@ -41,7 +41,7 @@ Private code goes in `src/diagnostix/_src/<module>/<topic>.py`; the public modul
 In `tests/test_<module>.py`, one class per function:
 
 - **Closed form** or stored reference, with the tolerance and its source in a comment (`assert_matches_oracle`; `tests/_oracles.py` has the forms). `xrops_values` only where xrops is right (the table in #16).
-- **Backends.** `assert_backends_agree`: NumPy, JAX and `array_api_strict` give the same values; a function that calls gridax passes `kinds=GRID_KINDS`; an elementwise one passes `labelled=True`, and the others have `assert_refuses_dataarrays`.
+- **Backends.** `assert_backends_agree`: NumPy, JAX, `array_api_strict` and dask give the same values; a function that calls gridax passes `kinds=GRID_KINDS`, and one that dask cannot run `kinds=EAGER_KINDS`; an elementwise one passes `labelled=True`, and the others have `assert_refuses_dataarrays`.
 - **Transforms.** `assert_traces`: eager, `jit` and `vmap` over a batch of one agree.
 - **Gradients.** `assert_grad_matches_fd`, and `assert_finite_gradient` on the valid cells when others are invalid.
 - **Precision.** float32 in gives float32 out.

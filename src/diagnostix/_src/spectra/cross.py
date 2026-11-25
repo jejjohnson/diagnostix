@@ -9,16 +9,20 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Complex, Float
-from pipekit_array.functions import floating_inputs, table_like
+from pipekit_array.functions import (
+    constants_like,
+    floating_inputs,
+    squared_magnitude,
+    table_like,
+)
 from pipekit_array.records import register_record
 
-from diagnostix._src.reduce import constants_like, require_axis
+from diagnostix._src.reduce import require_axis
 from diagnostix._src.spectra.taper import (
     Detrend,
     Window,
     checked_spacing,
     one_sided,
-    squared_magnitude,
     taper,
     tapered,
 )
@@ -121,9 +125,9 @@ def cross_spectrum(
     x_hat, y_hat = transform(x), transform(y)
     # P_xy = c (Δx / (L U)) ⟨x̂ ŷ*⟩
     cross = xp.mean(x_hat * xp.conj(y_hat), axis=-2)
-    scale = constants_like(xp, transform.scale, x)
+    scale = constants_like(transform.scale, x, xp)
     return CrossSpectrum(
-        wavenumber=constants_like(xp, transform.wavenumber, x), cross=cross * scale
+        wavenumber=constants_like(transform.wavenumber, x, xp), cross=cross * scale
     )
 
 
@@ -193,8 +197,8 @@ def coherence(
     def mean(values: Any) -> Any:
         return xp.mean(values, axis=over)
 
-    power_x = mean(squared_magnitude(xp, x_hat))
-    power_y = mean(squared_magnitude(xp, y_hat))
+    power_x = mean(squared_magnitude(x_hat, xp))
+    power_y = mean(squared_magnitude(y_hat, xp))
     defined = (power_x > 0) & (power_y > 0)
     one = xp.ones_like(power_x)
     # the product of small powers would underflow in float32, and so the roots
@@ -202,9 +206,9 @@ def coherence(
     root_y = xp.sqrt(xp.where(defined, power_y, one))
     # C = |⟨x̂ ŷ*⟩ / (⟨|x̂|²⟩ ⟨|ŷ|²⟩)^½|²
     related = mean(x_hat * xp.conj(y_hat)) / (root_x * root_y)
-    share = squared_magnitude(xp, related)
+    share = squared_magnitude(related, xp)
     return Coherence(
-        wavenumber=constants_like(xp, transform.wavenumber, x),
+        wavenumber=constants_like(transform.wavenumber, x, xp),
         coherence=xp.where(defined, share, xp.full_like(share, xp.nan)),
     )
 

@@ -7,12 +7,17 @@ from typing import Any
 
 import gridax
 from geophysix.constants import STANDARD
-from pipekit_array.functions import boolean_like, divide_or_nan, floating_inputs
+from pipekit_array.functions import (
+    boolean_like,
+    constants_like,
+    divide_or_nan,
+    floating_inputs,
+)
+from pipekit_array.weighted import used_weights
 
 from diagnostix._src.columns.levels import column_inputs
-from diagnostix._src.grids import grid_inputs, metric_like
+from diagnostix._src.grids import grid_inputs
 from diagnostix._src.kinematics.geostrophy import geostrophic_residual
-from diagnostix._src.reduce import used_weights
 from diagnostix._src.skill.moments import Cells, root
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
@@ -277,7 +282,7 @@ def _wet_cells(
     xp: ModuleType, grid: Any, mask: Any, weights: list[Any], ref: Any
 ) -> tuple[Cells, Any]:
     """The cells of a grid, weighted by area if not otherwise, and the wet ones."""
-    w = weights[0] if weights else metric_like(xp, gridax.area_weights(grid), ref)
+    w = weights[0] if weights else constants_like(gridax.area_weights(grid), ref, xp)
     w = xp.broadcast_to(w, ref.shape)
     wet = None if mask is None else boolean_like(mask.wet(), ref, xp)
     return Cells(xp, used_weights(xp, ref, w, wet), (-2, -1)), wet

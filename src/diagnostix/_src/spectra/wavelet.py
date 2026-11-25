@@ -9,10 +9,15 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Bool, Complex, Float
-from pipekit_array.functions import floating_inputs, namespace_of
+from pipekit_array.functions import (
+    constants_like,
+    floating_inputs,
+    namespace_of,
+    squared_magnitude,
+)
 from pipekit_array.records import register_record
 
-from diagnostix._src.reduce import constants_like, require_axis
+from diagnostix._src.reduce import require_axis
 from diagnostix._src.spectra.mothers import Mother
 from diagnostix._src.spectra.taper import (
     Detrend,
@@ -20,7 +25,6 @@ from diagnostix._src.spectra.taper import (
     checked_spacing,
     demean_or_detrend,
     require_samples,
-    squared_magnitude,
 )
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
@@ -69,7 +73,7 @@ class WaveletTransform:
         waves of one amplitude and different periods are equally high.
         """
         xp = namespace_of(self.coefficients)
-        return squared_magnitude(xp, self.coefficients)
+        return squared_magnitude(self.coefficients, xp)
 
     @property
     def period(self) -> Float[np.ndarray, " scale"]:
@@ -167,7 +171,7 @@ def wavelet_transform(
         s[:, None] * omega
     )
     x_hat = xp.fft.fft(as_complex(xp, x), n=length, axis=-1)
-    w = x_hat[..., None, :] * constants_like(xp, daughters, x)
+    w = x_hat[..., None, :] * constants_like(daughters, x, xp)
     phase = kind.phase.real if kind.is_real_in_fourier else kind.phase
     w = xp.fft.ifft(w * phase, axis=-1)[..., :n]
     return WaveletTransform(
@@ -231,7 +235,7 @@ def inverse_wavelet_transform(
     xp = namespace_of(w)
     real = xp.real(w)
     # x = ∑ⱼ weightⱼ Re W(sⱼ)
-    return xp.sum(real * constants_like(xp, weights[:, None], real), axis=-2)
+    return xp.sum(real * constants_like(weights[:, None], real, xp), axis=-2)
 
 
 def wavelet_significance(
@@ -288,7 +292,7 @@ def wavelet_significance(
         # χ²₁ is the square of a normal draw
         quantile = NormalDist().inv_cdf(0.5 * (1.0 + confidence)) ** 2
     cosine = np.cos(2.0 * np.pi * transform.spacing / transform.period)
-    cosine = constants_like(xp, cosine, real)
+    cosine = constants_like(cosine, real, xp)
     # (1 − α²) / (1 + α² − 2α cos(2πΔt/period))
     red = (1.0 - alpha**2) / (1.0 + alpha**2 - 2.0 * alpha * cosine)
     return sigma2 * red * (quantile / degrees)

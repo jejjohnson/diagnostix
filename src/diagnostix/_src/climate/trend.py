@@ -10,9 +10,10 @@ import numpy as np
 from jaxtyping import Float
 from pipekit_array.functions import divide_or_nan
 from pipekit_array.records import register_record
+from pipekit_array.weighted import reduction_inputs, used_weights
 
 from diagnostix._src.climate.window import check_window, window_sum
-from diagnostix._src.reduce import reduction_inputs, require_axis, used_weights
+from diagnostix._src.reduce import require_axis
 from diagnostix._src.times import time_offsets
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError

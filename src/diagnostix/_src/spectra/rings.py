@@ -8,9 +8,9 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
+from pipekit_array.functions import constants_like
 from pipekit_array.weighted import Groups
 
-from diagnostix._src.reduce import constants_like
 from diagnostix._src.spectra.taper import one_sided
 
 
@@ -71,6 +71,6 @@ class Rings:
         Returns:
             The sums over both halves of the plane, (…, ring).
         """
-        both = values * constants_like(xp, self.multiplicity, values)
+        both = values * constants_like(self.multiplicity, values, xp)
         flat = xp.reshape(both, (*both.shape[:-2], -1))
         return self.groups.sum(flat)

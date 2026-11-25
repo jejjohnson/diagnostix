@@ -9,7 +9,7 @@ from typing import Any, Literal
 import gridax
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import table_like
+from pipekit_array.functions import constants_like, table_like
 from pipekit_array.records import register_record
 
 from diagnostix._src.budgets.flux import (
@@ -19,7 +19,7 @@ from diagnostix._src.budgets.flux import (
 )
 from diagnostix._src.budgets.volume import ControlVolume
 from diagnostix._src.columns.derivatives import uneven_difference
-from diagnostix._src.grids import grid_inputs, metric_like
+from diagnostix._src.grids import grid_inputs
 from diagnostix._src.times import time_offsets
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
@@ -94,7 +94,7 @@ def region_integral(
     inside = table_like(volume.inside, held, xp)
     # 0 outside, also where q is not finite
     kept = xp.where(inside, held, xp.zeros_like(held))
-    area = metric_like(xp, gridax.area_weights(grid), held)
+    area = constants_like(gridax.area_weights(grid), held, xp)
     return xp.sum(kept * area, axis=(-2, -1), dtype=held.dtype)
 
 

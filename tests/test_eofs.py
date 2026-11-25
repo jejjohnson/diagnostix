@@ -8,14 +8,14 @@ import gridax
 import numpy as np
 import pytest
 from _backends import assert_backends_agree, assert_refuses_dataarrays, needs_jax
-from _harness import (
+from _oracles import functax_eofs, sklearn_pca, two_patterns
+from hypothesis import given, settings, strategies as st
+from pipekit_array.testing import (
     assert_finite_gradient,
     assert_grad_matches_fd,
     assert_matches_oracle,
     assert_traces,
 )
-from _oracles import functax_eofs, sklearn_pca, two_patterns
-from hypothesis import given, settings, strategies as st
 
 from diagnostix import ValidationError
 from diagnostix.eofs import EOFs, eofs, project, reconstruct

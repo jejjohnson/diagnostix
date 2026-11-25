@@ -111,7 +111,8 @@ def harmonic_climatology(
 
     x̃(d) = a₀ + ∑ₖ aₖ cos(2π k d / D) + bₖ sin(2π k d / D), with D the number of
     slots and k = 1 … K, fitted to the slot means by least squares weighted by
-    their counts.
+    their counts. dask has no batched solve, so compute a dask array first if there
+    is a ``valid``.
 
     Args:
         x: Samples of any unit, along ``axis``.

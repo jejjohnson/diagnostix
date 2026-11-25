@@ -7,8 +7,9 @@ from types import ModuleType
 from typing import Any
 
 from pipekit_array.functions import boolean_like, divide_or_nan, floating_inputs
+from pipekit_array.weighted import used_weights
 
-from diagnostix._src.reduce import require_axis, used_weights
+from diagnostix._src.reduce import require_axis
 from diagnostix._typing import ArrayLike
 
 

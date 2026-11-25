@@ -6,9 +6,7 @@ from types import ModuleType
 from typing import Any
 
 import gridax
-from pipekit_array.functions import namespace_of
-
-from diagnostix._src.grids import metric_like
+from pipekit_array.functions import constants_like, namespace_of
 
 
 __all__ = ["across", "face_lengths", "face_mean", "orientation"]
@@ -34,7 +32,7 @@ def face_lengths(xp: ModuleType, grid: Any, ref: Any) -> tuple[Any, Any]:
     dy = host.reshape(host.abs(grid.spacing("y")), (-1, 1))
     if not isinstance(grid, gridax.SphericalAGrid2D):
         dx = host.abs(host.reshape(grid.spacing("x"), (1, -1)))
-        return metric_like(xp, dy, ref), metric_like(xp, dx, ref)
+        return constants_like(dy, ref, xp), constants_like(dx, ref, xp)
     latitude = grid.coords("y")
     # R Δλ, from the row nearest the equator, where cos φ is largest
     row = host.argmax(host.cos(latitude))
@@ -42,7 +40,7 @@ def face_lengths(xp: ModuleType, grid: Any, ref: Any) -> tuple[Any, Any]:
     # φ_{j+½}, half-way between the rows
     between = 0.5 * (latitude[:-1] + latitude[1:])
     north = host.cos(between)[:, None] * dx[None, :]
-    return metric_like(xp, dy, ref), metric_like(xp, north, ref)
+    return constants_like(dy, ref, xp), constants_like(north, ref, xp)
 
 
 def face_mean(xp: ModuleType, values: Any, *, axis: int, periodic: bool) -> Any:

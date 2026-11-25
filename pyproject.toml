@@ -27,9 +27,9 @@ dependencies = [
     # constants and facts at a point
     "geophysix>=0.0.7",
     # the array backend, pipekit_array.functions; compat is array-api-compat
-    "pipekit-array[numpy,compat]>=0.1.5",
+    "pipekit-array[numpy,compat]>=0.1.6",
     # the core of pipekit-array, pinned below to the same tag
-    "pipekit-ops>=0.2.3",
+    "pipekit-ops>=0.2.4",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +51,7 @@ dev = [
 test = [
     # Needs neither JAX nor xarray: the job without them installs this group too.
     "array-api-strict>=2.3",
+    "dask[array]>=2024.6",
     "hypothesis>=6.100",
     "scipy>=1.14",
 ]

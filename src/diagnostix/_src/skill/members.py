@@ -6,8 +6,9 @@ from types import ModuleType
 from typing import Any
 
 from pipekit_array.functions import boolean_like, floating_inputs
+from pipekit_array.weighted import used_weights
 
-from diagnostix._src.reduce import require_axis, used_weights
+from diagnostix._src.reduce import require_axis
 from diagnostix._src.skill.moments import Axis, Cells
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError

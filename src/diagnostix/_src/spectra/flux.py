@@ -9,10 +9,9 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Float
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import constants_like, floating_inputs
 from pipekit_array.records import register_record
 
-from diagnostix._src.reduce import constants_like
 from diagnostix._src.spectra.rings import Rings
 from diagnostix._src.spectra.taper import Detrend, Window, checked_spacing, tapered
 from diagnostix._typing import ArrayLike
@@ -59,7 +58,9 @@ def kinetic_energy_flux(
     modes, which have no odd derivative, are left out of the velocity.
 
     The box is periodic. A tapered velocity is divergent, so its transfer does
-    not sum to 0, and a taper makes no periodic box out of another.
+    not sum to 0, and a taper makes no periodic box out of another. dask transforms
+    no chunked axis, and the finer grid is put together from chunks, so compute a
+    dask array first.
 
     Args:
         u: The x component (m s⁻¹), ending in (y, x), both growing with the
@@ -205,7 +206,7 @@ class _Modes:
         """The coefficients i k_x z, with k_x in radians per unit length."""
         (_, nx), (_, dx) = self.shape, self.spacing
         k = 2.0 * np.pi * np.arange(self.largest[1] + 1) / (nx * dx)
-        return z * constants_like(xp, k, xp.real(z)) * 1j
+        return z * constants_like(k, xp.real(z), xp) * 1j
 
     def derivative_y(self, xp: ModuleType, z: Any) -> Any:
         """The coefficients i k_y z, with k_y in radians per unit length."""
@@ -213,7 +214,7 @@ class _Modes:
         rows = self.largest[0]
         index = np.concatenate([np.arange(rows + 1), np.arange(-rows, 0)])
         k = 2.0 * np.pi * index / (ny * dy)
-        return z * constants_like(xp, k[:, None], xp.real(z)) * 1j
+        return z * constants_like(k[:, None], xp.real(z), xp) * 1j
 
     def transfer(
         self, xp: ModuleType, u_hat: Any, v_hat: Any, advected: Sequence[Any]
@@ -233,7 +234,7 @@ class _Modes:
         # Π(kₙ) = ∑ T over n′ ≥ n
         flux = xp.flip(xp.cumulative_sum(xp.flip(transfer, axis=-1), axis=-1), axis=-1)
         return SpectralFlux(
-            wavenumber=constants_like(xp, rings.wavenumber, u),
+            wavenumber=constants_like(rings.wavenumber, u, xp),
             transfer=transfer,
             flux=flux,
         )

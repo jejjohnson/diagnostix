@@ -1,31 +1,17 @@
-"""Each check passes on a right function and fails on a wrong one, and each
-reference is what its name says."""
+"""The checks on a toy function, and each reference is what its name says.
+
+That a check fails on a wrong function is tested in pipekit-array, which has it.
+"""
 
 from __future__ import annotations
 
-import itertools
 from pathlib import Path
 from typing import Any
 
 import gridax
 import numpy as np
 import pytest
-from _backends import (
-    GRID_KINDS,
-    HAS_STRICT,
-    KINDS,
-    assert_backends_agree,
-    assert_refuses_dataarrays,
-    needs_jax,
-    needs_xarray,
-)
-from _harness import (
-    assert_adjoint,
-    assert_finite_gradient,
-    assert_grad_matches_fd,
-    assert_matches_oracle,
-    assert_traces,
-)
+from _backends import assert_backends_agree, assert_refuses_dataarrays
 from _oracles import (
     XROPS_COMMIT,
     XROPS_FAMILIES,
@@ -45,10 +31,16 @@ from _oracles import (
     xrops_values,
     xskillscore_crps,
 )
-from _sampling import assert_mean
 from geophysix.earth import SPHERE
 from hypothesis import given, strategies as st
 from pipekit_array.functions import elementwise, floating_inputs, like
+from pipekit_array.testing import (
+    assert_finite_gradient,
+    assert_grad_matches_fd,
+    assert_matches_oracle,
+    assert_mean,
+    assert_traces,
+)
 
 
 SLOPE = 0.3
@@ -96,141 +88,6 @@ class TestTheChecksOnAToyFunction:
         assert_traces(toy_mean, X, VALID)
         assert_refuses_dataarrays(toy_mean, X, VALID)
         assert_finite_gradient(lambda x: toy_mean(x, VALID), X)
-
-
-class TestChecksFail:
-    def test_oracle_on_a_wrong_value_names_the_worst_index(self) -> None:
-        with pytest.raises(AssertionError, match=r"worst at index \(1,\)"):
-            assert_matches_oracle([1.0, 2.5], [1.0, 2.0], rtol=1e-12)
-
-    def test_oracle_matches_nan_only_with_nan(self) -> None:
-        assert_matches_oracle([np.nan], [np.nan], rtol=0.0)
-        for pair in (([np.nan], [1.0]), ([1.0], [np.nan])):
-            with pytest.raises(AssertionError):
-                assert_matches_oracle(*pair, rtol=1.0)
-
-    def test_oracle_masks_and_compares_integers_exactly(self) -> None:
-        assert_matches_oracle([1.0, 9.0], [1.0, 2.0], rtol=0.0, where=[True, False])
-        with pytest.raises(AssertionError):
-            assert_matches_oracle([1], [2], rtol=10.0)
-        with pytest.raises(AssertionError, match="shape mismatch"):
-            assert_matches_oracle([1.0], [[1.0]], rtol=0.0)
-
-    def test_adjoint_of_the_wrong_matrix(self) -> None:
-        h = np.random.default_rng(0).normal(size=(3, 4))
-        assert_adjoint(lambda x: h @ x, lambda r: h.T @ r, 4, 3)
-        with pytest.raises(AssertionError, match="dot-product"):
-            assert_adjoint(lambda x: h @ x, lambda r: 1.1 * h.T @ r, 4, 3)
-        with pytest.raises(AssertionError, match="shape"):
-            assert_adjoint(lambda x: h @ x, lambda r: r, 4, 3)
-        with pytest.raises(AssertionError, match="H x has shape"):
-            assert_adjoint(lambda x: x, lambda r: h.T @ r, 4, 3)
-
-    @needs_jax
-    def test_gradient_of_a_function_that_cuts_it(self) -> None:
-        import jax
-
-        with pytest.raises(AssertionError):
-            assert_grad_matches_fd(lambda x: jax.lax.stop_gradient(x) * x, X)
-
-    @needs_jax
-    def test_gradient_that_is_nan(self) -> None:
-        import jax.numpy as jnp
-
-        with pytest.raises(AssertionError):
-            assert_grad_matches_fd(lambda x: jnp.sqrt(jnp.abs(x)), np.zeros(2))
-
-    @needs_jax
-    def test_finite_gradient_of_a_single_where(self) -> None:
-        import jax.numpy as jnp
-
-        values = np.asarray([0.0, 2.0])
-
-        def single(x: Any) -> Any:
-            return jnp.sum(jnp.where(x > 0.0, 1.0 / x, 0.0))
-
-        def double(x: Any) -> Any:
-            safe = jnp.where(x > 0.0, x, 1.0)
-            return jnp.sum(jnp.where(x > 0.0, 1.0 / safe, 0.0))
-
-        assert_finite_gradient(double, values)
-        assert_finite_gradient(single, values, where=values > 0.0)
-        with pytest.raises(AssertionError, match="of output 0 by input 0"):
-            assert_finite_gradient(single, values)
-
-    @needs_jax
-    def test_transforms_of_an_impure_function(self) -> None:
-        calls = itertools.count()
-        with pytest.raises(AssertionError, match=r"jit\(fn\), output 0"):
-            assert_traces(lambda x: x + next(calls), X)
-
-    @needs_jax
-    def test_transforms_need_one_batch_axis(self) -> None:
-        with pytest.raises(AssertionError, match="same batch axis"):
-            assert_traces(toy, X, np.ones(5))
-
-    def test_backends_of_a_function_that_drops_the_kind(self) -> None:
-        if len(KINDS) == 1:
-            pytest.skip("only NumPy is installed")
-        with pytest.raises(AssertionError, match="in must give"):
-            assert_backends_agree(lambda x: np.sin(np.asarray(x)), X, labelled=True)
-
-    def test_backends_of_a_function_that_promotes_float32(self) -> None:
-        def promotes(x: Any) -> Any:
-            xp, (x,) = floating_inputs(x)
-            return x * xp.asarray(SLOPE, dtype=xp.float64)
-
-        with pytest.raises(AssertionError, match="float32: float64 came back"):
-            assert_backends_agree(promotes, X)
-
-    @pytest.mark.skipif(not HAS_STRICT, reason="array_api_strict is not installed")
-    def test_backends_of_a_function_that_is_wrong_on_one_library(self) -> None:
-        def wrong(x: Any) -> Any:
-            xp, (x,) = floating_inputs(x)
-            return x + (0.0 if xp.__name__.endswith("numpy") else 1.0)
-
-        with pytest.raises(AssertionError, match="strict float64"):
-            assert_backends_agree(wrong, X)
-        # the kinds of a grid function leave strict out
-        assert_backends_agree(wrong, X, kinds=GRID_KINDS)
-
-    def test_backends_compare_counts_exactly(self) -> None:
-        def count(valid: Any) -> Any:
-            xp, _ = floating_inputs(0.0, params=(valid,))
-            return xp.sum(xp.astype(valid, xp.int32), axis=-1)
-
-        assert_backends_agree(count, VALID)
-
-    @needs_xarray
-    def test_refusing_dataarrays_of_a_function_that_takes_them(self) -> None:
-        with pytest.raises(AssertionError, match="argument 0 accepted"):
-            assert_refuses_dataarrays(lambda x: x, X)
-
-    @needs_xarray
-    def test_the_labelled_kind_broadcasts_as_numpy_does(self) -> None:
-        kind = next(kind for kind in KINDS if kind.name == "xarray")
-        out = kind.make(np.ones((2, 3))) * kind.make(np.arange(3.0))
-        assert out.shape == (2, 3)
-
-    def test_a_mean_is_bounded_by_its_standard_error(self) -> None:
-        draws = np.random.default_rng(0).normal(2.0, 1.0, size=1000)
-        assert_mean(draws, 2.0)
-        with pytest.raises(AssertionError, match="standard errors"):
-            assert_mean(draws, 2.2)
-
-    @pytest.mark.parametrize(
-        ("sample", "message"),
-        [
-            (np.zeros(5), "too few"),
-            (np.zeros(50), "no spread"),
-            (np.append(np.arange(50.0), np.nan), "not finite"),
-        ],
-    )
-    def test_a_mean_that_cannot_be_bounded(
-        self, sample: np.ndarray, message: str
-    ) -> None:
-        with pytest.raises(AssertionError, match=message):
-            assert_mean(sample, 0.0)
 
 
 class TestClosedForms:

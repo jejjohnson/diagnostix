@@ -122,7 +122,7 @@ def resolved_scale(score: PSDScore, *, level: float = 0.5) -> Any:
     """The wavelength down to which a prediction has the reference's variance.
 
     1/k at the first k > 0 where the score falls to ``level``, interpolated in
-    log k.
+    log k. Compute a dask array first, as for `first_crossing`.
 
     Args:
         score: S(k).

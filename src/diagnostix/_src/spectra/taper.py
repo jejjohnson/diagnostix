@@ -7,8 +7,8 @@ from types import ModuleType
 from typing import Any, Literal
 
 import numpy as np
+from pipekit_array.functions import constants_like
 
-from diagnostix._src.reduce import constants_like
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -21,7 +21,6 @@ __all__ = [
     "demean_or_detrend",
     "one_sided",
     "require_samples",
-    "squared_magnitude",
     "taper",
     "tapered",
 ]
@@ -127,7 +126,7 @@ def demean_or_detrend(xp: ModuleType, x: Any, n_axes: int, detrend: Detrend) -> 
         n = x.shape[axis]
         # s, the offset from the middle, orthogonal to 1 and to the other axes'
         s = np.arange(n) - 0.5 * (n - 1)
-        offset = constants_like(xp, s.reshape((n,) + (1,) * (-axis - 1)), x)
+        offset = constants_like(s.reshape((n,) + (1,) * (-axis - 1)), x, xp)
         # β = ⟨s x⟩ / ⟨s²⟩
         slope = xp.mean(offset * x, axis=axes, keepdims=True) / float(np.mean(s**2))
         fitted = fitted + slope * offset
@@ -144,7 +143,7 @@ def tapered(
     """
     w, mean_square = taper(window, require_samples(x, n_axes))
     x = demean_or_detrend(xp, x, n_axes, detrend)
-    return (x if w is None else x * constants_like(xp, w, x)), mean_square
+    return (x if w is None else x * constants_like(w, x, xp)), mean_square
 
 
 def one_sided(n: int) -> np.ndarray:
@@ -160,8 +159,3 @@ def as_complex(xp: ModuleType, x: Any) -> Any:
     """Real samples in the complex dtype of their precision."""
     # the full transforms of the standard take complex input
     return xp.astype(x, xp.complex64 if x.dtype == xp.float32 else xp.complex128)
-
-
-def squared_magnitude(xp: ModuleType, z: Any) -> Any:
-    """|z|², with a gradient at 0, which that of ``abs`` does not have."""
-    return xp.real(z) ** 2 + xp.imag(z) ** 2
