@@ -6,8 +6,8 @@ from types import ModuleType
 from typing import Any
 
 import numpy as np
+from pipekit_array.functions import table_like
 
-from diagnostix._src.reduce import on_device
 from diagnostix._typing import ArrayLike
 
 
@@ -31,8 +31,8 @@ def time_offsets(xp: ModuleType, time: ArrayLike, ref: Any) -> tuple[Any, Any]:
     """
     if isinstance(time, (list, tuple, np.ndarray, np.generic)):
         host = np.asarray(time, dtype=np.float64)
-        shifted = on_device(xp, host - host[:1], ref)
-        origin = on_device(xp, host[:1], ref)
+        shifted = table_like(host - host[:1], ref, xp)
+        origin = table_like(host[:1], ref, xp)
     else:
         shifted, origin = time - time[:1], time[:1]
     return xp.astype(shifted, ref.dtype), xp.astype(origin, ref.dtype)[0]

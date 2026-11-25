@@ -28,7 +28,7 @@ The public API is the set of public modules below; private code lives in `src/di
 ### Boundaries
 
 - **Layer rule.** diagnostix imports gridax, geophysix and the array backend `pipekit_array.functions`, and nothing else from the GeoStack at runtime. It never imports functax, integrix, gaussx, geotoolz or any GeoModels library; xrops, plumax and sesmax-ocean import it. functax is a reference library in the tests. `tests/test_import_isolation.py` checks this.
-- **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`, with the `pipekit-ops` it brings. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to the one tag gridax and geophysix use. JAX and xarray are extras.
+- **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`, with the `pipekit-ops` it brings. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to one tag; until gridax and geophysix release on it too, `override-dependencies` in `pyproject.toml` says so. JAX and xarray are extras.
 - **Ownership test.** Does it take a field and say something about it, and does no library below already name it? Then it belongs here. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's. Extremes are xtremax's, and Lagrangian analysis is tracerax's.
 - **No convenience aliases.** A one-line combination of functions the stack has (absolute vorticity, eddy kinetic energy, f from latitude) is written by the caller, and the docs show it.
 
@@ -41,7 +41,7 @@ Each foundation brings a rule. Breaking one runs fine on your machine and fails 
 | Foundation | The package uses it for | The rule it brings |
 |---|---|---|
 | **NumPy ≥ 2.0** | The default namespace; tables built once on the host | NumPy in gives NumPy out; no function needs JAX or xarray installed. |
-| **pipekit-array** (`pipekit_array.functions`) | The namespace, the dtype and the device of a call | A change to them is made there. Only functions of the array API standard are called on the namespace; `array_api_strict` in the tests refuses the rest. |
+| **pipekit-array** (`pipekit_array.functions`, `.weighted`, `.records`) | The namespace, the dtype and the device of a call; masked sums, means and groups; records as pytrees | A change to them is made there. Only functions of the array API standard are called on the namespace; `array_api_strict` in the tests refuses the rest. |
 | **gridax** | Grids, masks, derivatives, `area_weights`, and the diagnostics it names | No stencil, metric term or cell area is written here when gridax has it. gridax does not run on `array_api_strict`, so a function that calls it is tested on NumPy and JAX. |
 | **geophysix** | Constants and facts at a point | No constant or Earth radius is written here. |
 | **JAX** (extra `jax`) | The same functions under `jit`, `vmap` and `grad` | Never imported at module level, and nothing inside the library calls `jax.jit`: the caller jits once, at the top. |
@@ -69,10 +69,11 @@ Before writing a helper, a constant, a conversion or a formula, find out whether
 | `xp = np if isinstance(x, np.ndarray) else jnp`, or `x.astype(float)` on an input | `namespace_of`, `floating_inputs` from `pipekit_array.functions` |
 | A constant as an array of the input's dtype, on its device | `pipekit_array.functions.like` |
 | `isinstance(x, xr.DataArray)`, or a call to `xr.apply_ufunc` | `@elementwise` and `is_dataarray` from `pipekit_array.functions` |
-| `nansum`, `nanmean`, a sum or mean with a mask or weights | `weighted_sum`, `weighted_mean` from `diagnostix._src.reduce` |
-| `bincount`, `segment_sum`, a `groupby`, an average over rings, days or bins | `Groups` from `diagnostix._src.groups`, built once on the host |
-| A ratio that is NaN where its denominator is 0, a host table on an array's device, or in its dtype too | `divide_or_nan`, `on_device`, `constants_like` from `diagnostix._src.reduce` |
-| A frozen result that must be a JAX pytree | `@register_record` from `diagnostix._src.records` |
+| `nansum`, `nanmean`, a sum or mean with a mask or weights | `weighted_sum`, `weighted_mean` from `pipekit_array.weighted` |
+| `bincount`, `segment_sum`, a `groupby`, an average over rings, days or bins | `Groups` from `pipekit_array.weighted`, built once on the host |
+| A ratio that is NaN where its denominator is 0, a host table on an array's device, a mask as an array | `divide_or_nan`, `table_like`, `boolean_like` from `pipekit_array.functions` |
+| A host table in an array's dtype too, the checks of another reduction along an axis | `constants_like`, `reduction_inputs`, `require_axis` from `diagnostix._src.reduce` |
+| A frozen result that must be a JAX pytree | `@register_record` from `pipekit_array.records` |
 | The checks of a call on a grid, or a grid's metric in a field's dtype | `grid_inputs`, `metric_like` from `diagnostix._src.grids` |
 | Times in a field's precision | `time_offsets` from `diagnostix._src.times` |
 | A derivative along an axis of uneven positions | `vertical_derivative`; inside, `uneven_difference` of `_src/columns/derivatives.py` |
@@ -106,7 +107,7 @@ These are the decisions of [#15](https://github.com/jejjohnson/diagnostix/issues
 
 ### 2. Exceptions
 
-- Every error derives from `DiagnostixError`, which is a `ValueError`: `ValidationError` is a bad argument (its shape, a dimension name, its value). The one exception is the array backend, which is shared: pipekit's `BackendError` (a `TypeError` and a `ValueError`) for an array of an unknown library or of several in one call, and a plain `ValueError` for an input that is not real or an unlabelled array next to a DataArray. A new error goes into `exceptions.py`, is exported, and joins the list in `tests/test_exceptions.py`.
+- Every error derives from `DiagnostixError`, which is a `ValueError`: `ValidationError` is a bad argument (its shape, a dimension name, its value). The one exception is the array backend, which is shared: pipekit's `BackendError` (a `TypeError` and a `ValueError`) for an array of an unknown library or of several in one call, and a plain `ValueError` for an input that is not real, a mask that is not boolean, an axis that does not hold the samples of a `Groups`, or an unlabelled array next to a DataArray. A new error goes into `exceptions.py`, is exported, and joins the list in `tests/test_exceptions.py`.
 
 ### The public API
 

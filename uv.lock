@@ -10,6 +10,12 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+overrides = [
+    { name = "pipekit-array", extras = ["numpy", "compat"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.5" },
+    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.5" },
+]
+
 [[package]]
 name = "appnope"
 version = "1.0.0"
@@ -457,8 +463,8 @@ requires-dist = [
     { name = "jax", marker = "extra == 'jax'", specifier = ">=0.4.38" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "pipekit-array", extras = ["numpy", "compat"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.4" },
-    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.4" },
+    { name = "pipekit-array", extras = ["numpy", "compat"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.5" },
+    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.5" },
     { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2024.10" },
 ]
 provides-extras = ["jax", "xarray"]
@@ -1707,8 +1713,8 @@ wheels = [
 
 [[package]]
 name = "pipekit-array"
-version = "0.1.4"
-source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.4#30a6c197a3d70e9d23029501bdf0202bca728f35" }
+version = "0.1.5"
+source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-array-v0.1.5#27aefaeb263551012207f62606d61cc328847166" }
 dependencies = [
     { name = "pipekit-ops" },
 ]
@@ -1724,7 +1730,7 @@ numpy = [
 [[package]]
 name = "pipekit-ops"
 version = "0.2.3"
-source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.4#30a6c197a3d70e9d23029501bdf0202bca728f35" }
+source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-array-v0.1.5#27aefaeb263551012207f62606d61cc328847166" }
 
 [[package]]
 name = "platformdirs"

@@ -9,14 +9,10 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Complex, Float
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import floating_inputs, table_like
+from pipekit_array.records import register_record
 
-from diagnostix._src.records import register_record
-from diagnostix._src.reduce import (
-    constants_like,
-    on_device,
-    require_axis,
-)
+from diagnostix._src.reduce import constants_like, require_axis
 from diagnostix._src.spectra.taper import (
     Detrend,
     Window,
@@ -261,7 +257,7 @@ class _Segments:
         if self.n_segments == 1 and self.index.shape[1] == x.shape[-1]:
             rows = x[..., None, :]
         else:
-            flat = on_device(xp, self.index.reshape(-1), x)
+            flat = table_like(self.index.reshape(-1), x, xp)
             rows = xp.take(x, flat, axis=-1)
             rows = xp.reshape(rows, (*x.shape[:-1], *self.index.shape))
         rows, _ = tapered(xp, rows, 1, self.window, self.detrend)

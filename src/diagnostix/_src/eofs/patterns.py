@@ -9,10 +9,14 @@ from typing import Any
 
 import numpy as np
 from jaxtyping import Bool, Float, Int
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import (
+    boolean_like,
+    divide_or_nan,
+    floating_inputs,
+    table_like,
+)
+from pipekit_array.records import register_record
 
-from diagnostix._src.records import register_record
-from diagnostix._src.reduce import boolean_like, divide_or_nan, on_device
 from diagnostix._typing import ArrayLike
 from diagnostix.exceptions import ValidationError
 
@@ -77,7 +81,8 @@ def eofs(
         BackendError: If an array is a DataArray or of another library.
         ValidationError: If ``anomaly`` has no grid, ``n_modes`` is out of range,
             ``weights`` or ``valid`` does not broadcast to the grid, or ``valid``
-            is not boolean or leaves no cell.
+            leaves no cell.
+        ValueError: If ``valid`` is not boolean.
 
     Examples:
         >>> import numpy as np
@@ -126,7 +131,7 @@ def eofs(
     sign = _sign_of_largest(xp, modes)
     amplitudes = u[:, :n_modes] * sigma[:n_modes] * sign
     # λₘ = σₘ² / ∑ⱼ σⱼ²
-    share = divide_or_nan(xp, sigma[:n_modes] ** 2, xp.sum(sigma**2))
+    share = divide_or_nan(sigma[:n_modes] ** 2, xp.sum(sigma**2), xp)
     modes = xp.where(positive, modes * sign[:, None], xp.full_like(modes, xp.nan))
     modes, amplitudes, share = (
         xp.where(finite, part, xp.full_like(part, xp.nan))
@@ -263,7 +268,7 @@ class _Cells:
         """
         mask = np.ones(grid, dtype=bool)
         if valid is not None:
-            given = boolean_like(np, np.asarray(valid), mask)
+            given = boolean_like(np.asarray(valid), mask, np)
             try:
                 mask = np.broadcast_to(given, grid)
             except ValueError as err:
@@ -284,7 +289,7 @@ class _Cells:
         flat = xp.reshape(x, (*x.shape[: x.ndim - len(self.grid)], self.size))
         if self.index.size == self.size:
             return flat
-        return xp.take(flat, on_device(xp, self.index, x), axis=-1)
+        return xp.take(flat, table_like(self.index, x, xp), axis=-1)
 
     def weights(self, xp: ModuleType, given: list[Any], x: Any) -> Any:
         """The weight of each valid cell, 1 if none is given.
@@ -311,7 +316,7 @@ class _Cells:
             return xp.reshape(values, shape)
         position = np.zeros(self.size, dtype=np.int64)
         position[self.index] = np.arange(self.index.size)
-        full = xp.take(values, on_device(xp, position, values), axis=-1)
-        inside = on_device(xp, self.valid.reshape(-1), values)
+        full = xp.take(values, table_like(position, values, xp), axis=-1)
+        inside = table_like(self.valid.reshape(-1), values, xp)
         full = xp.where(inside, full, xp.full_like(full, xp.nan))
         return xp.reshape(full, shape)

@@ -27,8 +27,8 @@ dependencies = [
     # constants and facts at a point
     "geophysix>=0.0.7",
     # the array backend, pipekit_array.functions; compat is array-api-compat
-    "pipekit-array[numpy,compat]>=0.1.4",
-    # the import hook that registers records with JAX; pipekit-array brings it too
+    "pipekit-array[numpy,compat]>=0.1.5",
+    # the core of pipekit-array, pinned below to the same tag
     "pipekit-ops>=0.2.3",
 ]
 
@@ -92,14 +92,21 @@ docs = [
     "pygments>=2.21.0,<2.22",
 ]
 
+[tool.uv]
+# gridax v0.3.1 and geophysix v0.0.7 fix pipekit-array-v0.1.4, and uv refuses two
+# refs of one repository. The overrides go once both release on v0.1.5.
+override-dependencies = [
+    "pipekit-ops @ git+https://github.com/jejjohnson/pipekit@pipekit-array-v0.1.5#subdirectory=packages/pipekit-ops",
+    "pipekit-array[numpy,compat] @ git+https://github.com/jejjohnson/pipekit@pipekit-array-v0.1.5#subdirectory=packages/pipekit-array",
+]
+
 [tool.uv.sources]
 # None of these is on PyPI: they resolve from git, by tag. Every pipekit package
-# is pinned to the one tag gridax and geophysix use, because uv refuses two refs
-# of one repository.
+# is pinned to one tag, because uv refuses two refs of one repository.
 gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", tag = "gridax-v0.3.1" }
 geophysix = { git = "https://github.com/jejjohnson/geophysix", tag = "v0.0.7" }
-pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-array-v0.1.4" }
-pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-array-v0.1.4" }
+pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-array-v0.1.5" }
+pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-array-v0.1.5" }
 
 [build-system]
 requires = ["hatchling"]

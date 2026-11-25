@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pipekit_array.functions import floating_inputs
+from pipekit_array.functions import divide_or_nan, floating_inputs
 
 from diagnostix._src.climate.trend import linear_trend
-from diagnostix._src.reduce import divide_or_nan
 from diagnostix._src.spectra.power import Spectrum
 from diagnostix.exceptions import ValidationError
 
@@ -88,4 +87,4 @@ def integral_scale(spectrum: Spectrum, *, moment: int = 1) -> Any:
     # ℓᵐ = ∑ P / ∑ kᵐ P
     total = xp.sum(power, axis=-1)
     weighted = xp.sum(k**moment * power, axis=-1)
-    return divide_or_nan(xp, total, weighted) ** (1.0 / moment)
+    return divide_or_nan(total, weighted, xp) ** (1.0 / moment)

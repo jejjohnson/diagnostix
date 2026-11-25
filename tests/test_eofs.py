@@ -244,7 +244,7 @@ class TestEofs:
         few[0, :2] = True
         with pytest.raises(ValidationError, match="and 2 cells"):
             eofs(x, n_modes=3, valid=few)
-        with pytest.raises(ValidationError, match="must be boolean"):
+        with pytest.raises(ValueError, match="must be boolean"):
             eofs(x, n_modes=1, valid=np.ones((3, 4)))
         with pytest.raises(ValidationError, match="'valid' of shape"):
             eofs(x, n_modes=1, valid=np.ones((4, 3), dtype=bool))
