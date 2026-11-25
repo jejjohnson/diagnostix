@@ -76,6 +76,7 @@ nav:
   - Columns: columns.md
   - Budgets: budgets.md
   - Climate: climate.md
+  - Spectra: spectra.md
   - Type aliases: typing.md
   - Exceptions: exceptions.md
 

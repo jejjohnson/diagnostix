@@ -21,7 +21,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `columns` | Vertical derivative, N², lapse rate, column integrals, first crossings, mixed-layer depth, bulk Richardson number, boundary-layer height | now |
 | `budgets` | Control volumes, face and boundary fluxes, the flux divergence, region integrals, budgets and their residuals | now |
 | `climate` | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | now |
-| `spectra` | Power, isotropic, cross, coherence, rotary and wavelet spectra; spectral fluxes and slopes | Wave 3 |
+| `spectra` | Power and isotropic spectra; cross, coherence, rotary and wavelet spectra, spectral fluxes and slopes in Wave 3 | now |
 | `eofs` | Area-weighted EOFs and their reading | Wave 3 |
 | `skill` | Pointwise, ensemble, spectral and physical scores | Wave 4 |
 
@@ -71,12 +71,14 @@ Before writing a helper, a constant, a conversion or a formula, find out whether
 | `isinstance(x, xr.DataArray)`, or a call to `xr.apply_ufunc` | `@elementwise` and `is_dataarray` from `pipekit_array.functions` |
 | `nansum`, `nanmean`, a sum or mean with a mask or weights | `weighted_sum`, `weighted_mean` from `diagnostix._src.reduce` |
 | `bincount`, `segment_sum`, a `groupby`, an average over rings, days or bins | `Groups` from `diagnostix._src.groups`, built once on the host |
-| A ratio that is NaN where its denominator is 0, a host table on an array's device | `divide_or_nan`, `on_device` from `diagnostix._src.reduce` |
+| A ratio that is NaN where its denominator is 0, a host table on an array's device, or in its dtype too | `divide_or_nan`, `on_device`, `constants_like` from `diagnostix._src.reduce` |
 | A frozen result that must be a JAX pytree | `@register_record` from `diagnostix._src.records` |
 | The checks of a call on a grid, or a grid's metric in a field's dtype | `grid_inputs`, `metric_like` from `diagnostix._src.grids` |
 | Times in a field's precision | `time_offsets` from `diagnostix._src.times` |
 | A derivative along an axis of uneven positions | `vertical_derivative`; inside, `uneven_difference` of `_src/columns/derivatives.py` |
 | A sum or a mean over a centred window | `window_sum` from `diagnostix._src.climate.window` |
+| A detrended, tapered field before a transform, \|z\|² | `tapered`, `squared_magnitude` from `diagnostix._src.spectra.taper` |
+| A sum over rings of the wavenumber plane | `Rings` from `diagnostix._src.spectra.rings` |
 | The face lengths of a grid, a mean onto its faces | `face_lengths`, `face_mean` from `diagnostix._src.budgets.faces` |
 | A new exception for a bad argument | `ValidationError` |
 
