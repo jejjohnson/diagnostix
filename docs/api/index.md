@@ -11,7 +11,7 @@ The public API is the set of public modules below, plus the exceptions that `dia
 | [`diagnostix.budgets`](budgets.md) | Control volumes, face and boundary fluxes, the flux divergence, region integrals, budgets and their residuals | available |
 | [`diagnostix.climate`](climate.md) | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | available |
 | [`diagnostix.spectra`](spectra.md) | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | available |
-| `diagnostix.eofs` | Area-weighted EOFs and their reading | Wave 3 |
+| [`diagnostix.eofs`](eofs.md) | Area-weighted EOFs, projection and reconstruction | available |
 | `diagnostix.skill` | Pointwise, ensemble, spectral and physical scores | Wave 4 |
 | [Type aliases](typing.md) | `ArrayLike` | available |
 | [Exceptions](exceptions.md) | `DiagnostixError`, `BackendError`, `ValidationError` | available |

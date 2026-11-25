@@ -22,7 +22,7 @@ The public API is the set of public modules below; private code lives in `src/di
 | `budgets` | Control volumes, face and boundary fluxes, the flux divergence, region integrals, budgets and their residuals | now |
 | `climate` | Calendar days, climatologies, harmonic fits and smoothing, anomalies, linear trends, running means | now |
 | `spectra` | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | now |
-| `eofs` | Area-weighted EOFs and their reading | Wave 3 |
+| `eofs` | Area-weighted EOFs, projection and reconstruction | now |
 | `skill` | Pointwise, ensemble, spectral and physical scores | Wave 4 |
 
 ### Boundaries

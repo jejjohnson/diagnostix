@@ -21,6 +21,7 @@ SUBMODULES = [
     "budgets",
     "climate",
     "columns",
+    "eofs",
     "exceptions",
     "kinematics",
     "spectra",
