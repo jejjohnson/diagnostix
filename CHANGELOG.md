@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.5](https://github.com/jejjohnson/diagnostix/compare/v0.0.4...v0.0.5) (2026-11-25)
+
+
+### Features
+
+* **skill:** ensemble scores that a reliable ensemble of any size passes ([#62](https://github.com/jejjohnson/diagnostix/issues/62)) ([1724c6f](https://github.com/jejjohnson/diagnostix/commit/1724c6f68bcd7bb529d784387a3819a1ecc00318))
+* **skill:** geostrophic imbalance, RMS divergence, density inversions and the QG balance residual ([#65](https://github.com/jejjohnson/diagnostix/issues/65)) ([50fa8b2](https://github.com/jejjohnson/diagnostix/commit/50fa8b23fdfb5a8957ce99d0fdf27ad36b153ea5))
+* **skill:** pointwise scores, weighted, with gaps, and differentiable at a perfect prediction ([#61](https://github.com/jejjohnson/diagnostix/issues/61)) ([968687d](https://github.com/jejjohnson/diagnostix/commit/968687d33f90340b58d592699512969d64e2a203))
+* **skill:** the Diebold–Mariano statistic of two methods' errors ([#66](https://github.com/jejjohnson/diagnostix/issues/66)) ([a0b7424](https://github.com/jejjohnson/diagnostix/commit/a0b74244dc20d1bd6a7681d2217bd8bc7d386c65))
+* **skill:** the PSD score, the wavelength it resolves, and the RMSE in bands ([#64](https://github.com/jejjohnson/diagnostix/issues/64)) ([0b6c3c3](https://github.com/jejjohnson/diagnostix/commit/0b6c3c3073d6d66b63ed94add1495573fdf786f7))
+
 ## [0.0.4](https://github.com/jejjohnson/diagnostix/compare/v0.0.3...v0.0.4) (2026-11-25)
 
 
