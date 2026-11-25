@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.4](https://github.com/jejjohnson/diagnostix/compare/v0.0.3...v0.0.4) (2026-11-25)
+
+
+### Features
+
+* **eofs:** area-weighted EOFs, projection and reconstruction ([#54](https://github.com/jejjohnson/diagnostix/issues/54)) ([cdf1424](https://github.com/jejjohnson/diagnostix/commit/cdf1424592e35d62e5574e1e0d813f59a2aac0a2))
+* **spectra:** cross spectra, coherence with the average it needs, and rotary spectra ([#50](https://github.com/jejjohnson/diagnostix/issues/50)) ([102acfd](https://github.com/jejjohnson/diagnostix/commit/102acfdbca39e115818ce0f8000cc12176d557af))
+* **spectra:** dealiased fluxes of kinetic energy and enstrophy, spectral slopes and scales ([#52](https://github.com/jejjohnson/diagnostix/issues/52)) ([9f8b3c9](https://github.com/jejjohnson/diagnostix/commit/9f8b3c922a6dd34d629ca999877a707f249fb0ef))
+* **spectra:** power spectra in one and two dimensions, and the isotropic spectrum, that satisfy Parseval ([#49](https://github.com/jejjohnson/diagnostix/issues/49)) ([13e6858](https://github.com/jejjohnson/diagnostix/commit/13e6858c31a6b86aaa762996b1103136ca789832))
+* **spectra:** the wavelet transform, its inverse and significance, and a local isotropic spectrum ([#53](https://github.com/jejjohnson/diagnostix/issues/53)) ([fafb8e5](https://github.com/jejjohnson/diagnostix/commit/fafb8e5210e477cb4c1935e19c0ff88d79cecdcf))
+
 ## [0.0.3](https://github.com/jejjohnson/diagnostix/compare/v0.0.2...v0.0.3) (2026-11-24)
 
 
