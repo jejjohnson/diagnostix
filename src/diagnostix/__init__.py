@@ -15,6 +15,7 @@ leaves over, which patterns vary together, and how good a forecast is.
 | `diagnostix.spectra` | power, cross, rotary and wavelet spectra |
 | `diagnostix.eofs` | area-weighted EOFs |
 | `diagnostix.skill` | pointwise, ensemble, spectral and physical scores |
+| `diagnostix.trajectories` | separation, skill and dispersion of trajectories |
 """
 
 from __future__ import annotations

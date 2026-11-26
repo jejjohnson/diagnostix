@@ -5,12 +5,12 @@ from __future__ import annotations
 from types import ModuleType
 from typing import Any
 
-import numpy as np
 from geophysix.earth import SPHERE, Ellipsoid
-from pipekit_array.arrays import concrete, weighted_mean
+from pipekit_array.arrays import weighted_mean
 
 from diagnostix._src.trajectories.distance import (
     Distance,
+    host_flag,
     known,
     position_inputs,
     squared_distance,
@@ -147,16 +147,15 @@ def pair_dispersion(
             f"'pairs' must be (pair, 2), got shape {tuple(pairs.shape)}"
         )
     n_particles = path.shape[1]
-    members = concrete(pairs)
-    if members is not None and members.size:
-        if not np.issubdtype(members.dtype, np.integer):
-            raise ValidationError(
-                f"'pairs' must be integers, got dtype {members.dtype}"
-            )
-        if members.min() < 0 or members.max() >= n_particles:
+    if not xp.isdtype(pairs.dtype, "integral"):
+        raise ValidationError(f"'pairs' must be integers, got dtype {pairs.dtype}")
+    if pairs.shape[0]:
+        # reduced in the namespace, on the array's own device
+        outside = xp.any((pairs < 0) | (pairs >= n_particles))
+        if host_flag(outside):
             raise ValidationError(
                 f"'pairs' must name particles from 0 to {n_particles - 1}, "
-                f"got {members.min()} to {members.max()}"
+                f"got {int(xp.min(pairs))} to {int(xp.max(pairs))}"
             )
     left = xp.take(path, pairs[:, 0], axis=1)
     right = xp.take(path, pairs[:, 1], axis=1)

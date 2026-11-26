@@ -8,6 +8,7 @@ from typing import Any, Literal
 import numpy as np
 from geophysix.earth import Ellipsoid, great_circle_distance
 from pipekit_array.arrays import concrete, floating_inputs
+from pipekit_ops import is_traced
 
 from diagnostix._src.skill.moments import root
 from diagnostix._typing import ArrayLike
@@ -17,6 +18,7 @@ from diagnostix.exceptions import ValidationError
 __all__ = [
     "Distance",
     "check_scalar",
+    "host_flag",
     "distance_between",
     "known",
     "position_inputs",
@@ -56,11 +58,15 @@ def position_inputs(
                 f"'{name}' must have 2 columns on the sphere, longitude and latitude "
                 f"in degrees, got shape {tuple(array.shape)}"
             )
-        values = concrete(array)
-        if values is not None and (np.abs(values[..., 1]) > 90.0).any():
+        if is_traced(array):
+            continue
+        # reduced in the namespace, on the array's own device
+        size = xp.abs(array[..., 1])
+        size = xp.where(xp.isnan(size), xp.zeros_like(size), size)
+        if bool(xp.any(size > 90.0)):
             raise ValidationError(
                 f"'{name}' must hold latitudes between −90° and 90° in its second "
-                f"column, got {np.nanmax(np.abs(values[..., 1]))} in size"
+                f"column, got {float(xp.max(size))} in size"
             )
     if kind == "sphere":
         flattening = concrete(earth.flattening)
@@ -86,6 +92,11 @@ def check_scalar(name: str, value: Any, *, zero: bool) -> None:
     above = number >= 0.0 if zero else number > 0.0
     if not (above and np.isfinite(number)):
         raise ValidationError(f"'{name}' must be {words}, got {float(number)}")
+
+
+def host_flag(value: Any) -> bool | None:
+    """A boolean scalar of any namespace and device as a bool; None if traced."""
+    return None if is_traced(value) else bool(value)
 
 
 def known(xp: ModuleType, position: Any) -> Any:

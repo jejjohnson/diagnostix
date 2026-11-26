@@ -13,6 +13,7 @@ The public API is the set of public modules below, plus the exceptions that `dia
 | [`diagnostix.spectra`](spectra.md) | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | available |
 | [`diagnostix.eofs`](eofs.md) | Area-weighted EOFs, projection and reconstruction | available |
 | [`diagnostix.skill`](skill.md) | Pointwise, ensemble, spectral and physical scores, the Diebold–Mariano statistic | available |
+| [`diagnostix.trajectories`](trajectories.md) | Separation of a trajectory from an observed one, its normalised cumulative form, skill, absolute and pair dispersion | available |
 | [Type aliases](typing.md) | `ArrayLike` | available |
 | [Exceptions](exceptions.md) | `DiagnostixError`, `BackendError`, `ValidationError` | available |
 

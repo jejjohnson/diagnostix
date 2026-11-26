@@ -223,7 +223,9 @@ def test_backends_agree(distance: str, score: Any) -> None:
     def of(x: Any, y: Any) -> Any:
         return score(x, y, distance=distance)
 
-    assert_backends_agree(of, simulated, observed, kinds=EAGER_KINDS, rtol32=1e-4)
+    # float32 resolves 1e-7 rad, 0.6 m on the Earth, of separations of kilometres
+    rtol32 = 2e-3 if distance == "sphere" else 1e-4
+    assert_backends_agree(of, simulated, observed, kinds=EAGER_KINDS, rtol32=rtol32)
     assert_traces(of, simulated[None], observed[None])
     assert_refuses_dataarrays(of, simulated, observed)
 
@@ -364,8 +366,9 @@ def test_the_dispersions_on_every_backend(distance: str) -> None:
     def relative(x: Any, p: Any) -> Any:
         return pair_dispersion(x, p, distance=distance)
 
-    assert_backends_agree(absolute, trajectory, rtol32=1e-4)
-    assert_backends_agree(relative, trajectory, pairs, rtol32=1e-4)
+    rtol32 = 2e-3 if distance == "sphere" else 1e-4
+    assert_backends_agree(absolute, trajectory, rtol32=rtol32)
+    assert_backends_agree(relative, trajectory, pairs, rtol32=rtol32)
     assert_refuses_dataarrays(absolute, trajectory)
 
 
