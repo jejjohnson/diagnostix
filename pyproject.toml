@@ -23,9 +23,9 @@ dependencies = [
     "numpy>=2.0",
     "jaxtyping>=0.3",
     # grids, masks, derivatives, area weights, and the diagnostics it names
-    "gridax>=0.3.3",
+    "gridax>=0.3.4",
     # constants and facts at a point
-    "geophysix>=0.0.9",
+    "geophysix>=0.0.10",
     # the array backend, pipekit_array.arrays; compat is array-api-compat
     "pipekit-array[numpy,compat]>=0.2.0",
     # the core of pipekit-array, pinned below to the same tag
@@ -96,10 +96,10 @@ docs = [
 [tool.uv.sources]
 # None of these is on PyPI: they resolve from git, by tag. Every pipekit package
 # is pinned to one tag, because uv refuses two refs of one repository.
-gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", tag = "gridax-v0.3.3" }
-geophysix = { git = "https://github.com/jejjohnson/geophysix", tag = "v0.0.9" }
-pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-array-v0.2.0" }
-pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-array-v0.2.0" }
+gridax = { git = "https://github.com/jejjohnson/gridax", subdirectory = "packages/gridax", tag = "gridax-v0.3.4" }
+geophysix = { git = "https://github.com/jejjohnson/geophysix", tag = "v0.0.10" }
+pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-array-v0.3.0" }
+pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-array-v0.3.0" }
 
 [build-system]
 requires = ["hatchling"]
