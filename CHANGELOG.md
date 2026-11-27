@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.9](https://github.com/jejjohnson/diagnostix/compare/v0.0.8...v0.0.9) (2026-11-27)
+
+
+### Features
+
+* **trajectories:** separation, cumulative separation, trajectory skill and dispersion, moved from tracerax onto the array API ([#78](https://github.com/jejjohnson/diagnostix/issues/78)) ([e305a0f](https://github.com/jejjohnson/diagnostix/commit/e305a0f64d878fe833321d06f1d514d7cada9312))
+
 ## [0.0.8](https://github.com/jejjohnson/diagnostix/compare/v0.0.7...v0.0.8) (2026-11-26)
 
 
