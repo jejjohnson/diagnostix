@@ -26,6 +26,7 @@ SUBMODULES = [
     "kinematics",
     "skill",
     "spectra",
+    "trajectories",
 ]
 
 

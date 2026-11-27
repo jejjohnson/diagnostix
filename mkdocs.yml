@@ -79,6 +79,7 @@ nav:
   - Spectra: spectra.md
   - EOFs: eofs.md
   - Skill: skill.md
+  - Trajectories: trajectories.md
   - Type aliases: typing.md
   - Exceptions: exceptions.md
 

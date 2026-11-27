@@ -42,6 +42,7 @@ Every module is built:
 | `spectra` | power, isotropic, cross, rotary and wavelet spectra, coherence; spectral fluxes, slopes and scales | [Wave 3](https://github.com/jejjohnson/diagnostix/issues/11), built |
 | `eofs` | area-weighted EOFs, projection and reconstruction | [Wave 3](https://github.com/jejjohnson/diagnostix/issues/11), built |
 | `skill` | pointwise, ensemble, spectral and physical scores; the Diebold–Mariano statistic | [Wave 4](https://github.com/jejjohnson/diagnostix/issues/12), built |
+| `trajectories` | separation of a trajectory from an observed one, skill, absolute and pair dispersion | [#75](https://github.com/jejjohnson/diagnostix/issues/75), built |
 
 ## Design
 

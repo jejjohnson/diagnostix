@@ -24,12 +24,14 @@ The public API is the set of public modules below; private code lives in `src/di
 | `spectra` | Power, isotropic, cross, rotary and wavelet spectra, coherence, spectral fluxes, slopes and scales | now |
 | `eofs` | Area-weighted EOFs, projection and reconstruction | now |
 | `skill` | Pointwise, ensemble, spectral and physical scores, the Diebold–Mariano statistic | now |
+| `trajectories` | Separation of a trajectory from an observed one, its normalised cumulative form, skill, absolute and pair dispersion | now |
 
 ### Boundaries
 
 - **Layer rule.** diagnostix imports gridax, geophysix and the array backend of `pipekit_array`, and nothing else from the GeoStack at runtime. It never imports functax, integrix, gaussx, geotoolz or any GeoModels library; xrops, plumax and sesmax-ocean import it. functax is a reference library in the tests. `tests/test_import_isolation.py` checks this.
 - **Runtime dependencies**: `numpy>=2.0`, `jaxtyping`, `gridax`, `geophysix` and `pipekit-array[numpy,compat]`, with the `pipekit-ops` it brings. None of the stack's packages is on PyPI, so they are pinned to git tags, and every pipekit package to one tag, the one that gridax and geophysix pin. JAX and xarray are extras.
 - **Ownership test.** Does it take a field and say something about it, and does no library below already name it? Then it belongs here. A quantity gridax already names (curl, divergence, kinetic energy, strain, Okubo–Weiss, geostrophic velocity, shallow-water potential vorticity) stays gridax's, on every grid. A fact at a point (density, θ, wind speed, Coriolis) is geophysix's. Labels, CF and dask are xrops'. Benchmarks are pipekit-evaluate's. Extremes are xtremax's, and Lagrangian analysis is tracerax's.
+- **Trajectories.** The scores of a trajectory that take arrays of positions alone are here (`trajectories`, moved from tracerax in [#75](https://github.com/jejjohnson/diagnostix/issues/75)); what needs a run of particles (FTLE, residence, connectivity) stays tracerax's, which diagnostix never imports.
 - **No convenience aliases.** A one-line combination of functions the stack has (absolute vorticity, eddy kinetic energy, f from latitude) is written by the caller, and the docs show it.
 
 When other projects build on the package, list them here and keep their imports working through the change that moves them.
